@@ -41,6 +41,7 @@ module.exports = () => {
       'expo-linking',
       'expo-constants',
       'expo-modules-core',
+      'db',
     ],
     experimental: {
       scrollRestoration: true,

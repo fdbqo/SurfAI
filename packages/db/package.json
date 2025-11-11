@@ -1,0 +1,12 @@
+{
+  "version": "0.0.0",
+  "name": "db",
+  "main": "src/index.ts",
+  "private": true,
+  "dependencies": {
+    "mongodb": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.1"
+  }
+}
