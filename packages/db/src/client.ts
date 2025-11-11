@@ -1,7 +1,7 @@
 import { MongoClient, Db } from 'mongodb';
 
 let client: MongoClient | null = null;
-let clientPromise: Promise<MongoClient | null> | null = null;
+let clientPromise: Promise<MongoClient> | null = null;
 let db: Db | null = null;
 let dbPromise: Promise<Db | null> | null = null;
 
@@ -26,33 +26,38 @@ export async function getMongoClient(): Promise<MongoClient | null> {
     throw new Error('MongoDB configuration required in production');
   }
 
-  clientPromise = (async () => {
-    const newClient = new MongoClient(mongoUri, {
+  const promise = (async () => {
+    const nextClient = new MongoClient(mongoUri, {
       maxPoolSize: 10,
       minPoolSize: 2,
     });
 
     try {
-      await newClient.connect();
-      client = newClient;
-      return newClient;
+      await nextClient.connect();
+      client = nextClient;
+      return nextClient;
     } catch (error) {
       try {
-        await newClient.close();
+        await nextClient.close();
       } catch {
         // ignore close error
       }
       throw error;
-    } finally {
-      clientPromise = null;
     }
   })();
 
+  clientPromise = promise;
+
   try {
-    return await clientPromise;
+    const resolvedClient = await promise;
+    return resolvedClient;
   } catch (error) {
     client = null;
     throw error;
+  } finally {
+    if (clientPromise === promise) {
+      clientPromise = null;
+    }
   }
 }
 
@@ -69,7 +74,7 @@ export async function getDb(): Promise<Db | null> {
     return dbPromise;
   }
 
-  dbPromise = (async () => {
+  const promise: Promise<Db | null> = (async () => {
     const mongoClient = await getMongoClient();
     if (!mongoClient) {
       return null;
@@ -81,8 +86,11 @@ export async function getDb(): Promise<Db | null> {
     return database;
   })();
 
+  dbPromise = promise;
+
   try {
-    return await dbPromise;
+    const resolvedDb = await promise;
+    return resolvedDb;
   } catch (error: any) {
     if (error?.codeName === 'AtlasError' || error?.code === 8000) {
       console.error('MongoDB authentication failed. Check your username and password in MONGODB_URI');
@@ -93,7 +101,9 @@ export async function getDb(): Promise<Db | null> {
     await closeConnection();
     return null;
   } finally {
-    dbPromise = null;
+    if (dbPromise === promise) {
+      dbPromise = null;
+    }
   }
 }
 
@@ -101,11 +111,19 @@ export async function getDb(): Promise<Db | null> {
  * Close MongoDB connection
  */
 export async function closeConnection(): Promise<void> {
-  if (client) {
-    await client.close();
-  }
+  const currentClient = client;
   client = null;
   db = null;
   clientPromise = null;
   dbPromise = null;
+
+  if (!currentClient) {
+    return;
+  }
+
+  try {
+    await currentClient.close();
+  } catch (error) {
+    console.error('Failed to close MongoDB client:', error);
+  }
 }
