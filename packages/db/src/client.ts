@@ -61,6 +61,13 @@ export async function getDb(): Promise<Db | null> {
     } else {
       console.error('Failed to get database:', error?.message || error);
     }
+    try {
+      await mongoClient.close();
+    } catch (closeError) {
+      console.error('Failed to close MongoDB client after error:', closeError);
+    }
+    client = null;
+    db = null;
     return null;
   }
 }
