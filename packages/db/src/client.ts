@@ -1,15 +1,21 @@
 import { MongoClient, Db } from 'mongodb';
 
 let client: MongoClient | null = null;
+let clientPromise: Promise<MongoClient | null> | null = null;
 let db: Db | null = null;
+let dbPromise: Promise<Db | null> | null = null;
 
 /**
  * Get or create MongoDB client instance
  * Returns null if MongoDB is not configured (optional for development)
  */
-export function getMongoClient(): MongoClient | null {
+export async function getMongoClient(): Promise<MongoClient | null> {
   if (client) {
     return client;
+  }
+
+  if (clientPromise) {
+    return clientPromise;
   }
 
   const mongoUri = process.env.MONGODB_URI;
@@ -20,19 +26,33 @@ export function getMongoClient(): MongoClient | null {
     throw new Error('MongoDB configuration required in production');
   }
 
-  try {
-    client = new MongoClient(mongoUri, {
+  clientPromise = (async () => {
+    const newClient = new MongoClient(mongoUri, {
       maxPoolSize: 10,
       minPoolSize: 2,
     });
 
-    return client;
-  } catch (error) {
-    console.error('Failed to create MongoDB client:', error);
-    if (process.env.NODE_ENV === 'production') {
+    try {
+      await newClient.connect();
+      client = newClient;
+      return newClient;
+    } catch (error) {
+      try {
+        await newClient.close();
+      } catch {
+        // ignore close error
+      }
       throw error;
+    } finally {
+      clientPromise = null;
     }
-    return null;
+  })();
+
+  try {
+    return await clientPromise;
+  } catch (error) {
+    client = null;
+    throw error;
   }
 }
 
@@ -45,30 +65,35 @@ export async function getDb(): Promise<Db | null> {
     return db;
   }
 
-  const mongoClient = getMongoClient();
-  if (!mongoClient) {
-    return null;
+  if (dbPromise) {
+    return dbPromise;
   }
 
-  try {
-    await mongoClient.connect();
+  dbPromise = (async () => {
+    const mongoClient = await getMongoClient();
+    if (!mongoClient) {
+      return null;
+    }
+
     const databaseName = process.env.MONGODB_DATABASE || 'surf-ai';
-    db = mongoClient.db(databaseName);
-    return db;
+    const database = mongoClient.db(databaseName);
+    db = database;
+    return database;
+  })();
+
+  try {
+    return await dbPromise;
   } catch (error: any) {
     if (error?.codeName === 'AtlasError' || error?.code === 8000) {
       console.error('MongoDB authentication failed. Check your username and password in MONGODB_URI');
     } else {
       console.error('Failed to get database:', error?.message || error);
     }
-    try {
-      await mongoClient.close();
-    } catch (closeError) {
-      console.error('Failed to close MongoDB client after error:', closeError);
-    }
-    client = null;
-    db = null;
+
+    await closeConnection();
     return null;
+  } finally {
+    dbPromise = null;
   }
 }
 
@@ -78,7 +103,9 @@ export async function getDb(): Promise<Db | null> {
 export async function closeConnection(): Promise<void> {
   if (client) {
     await client.close();
-    client = null;
-    db = null;
   }
+  client = null;
+  db = null;
+  clientPromise = null;
+  dbPromise = null;
 }
