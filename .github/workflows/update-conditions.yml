@@ -1,0 +1,30 @@
+name: Update Surf Conditions
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # every 30 minutes
+  workflow_dispatch:  # manual testing
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run worker
+        working-directory: packages/worker
+        run: yarn update-conditions
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+
