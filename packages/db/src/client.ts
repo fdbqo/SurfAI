@@ -31,7 +31,7 @@ export async function getMongoClient(): Promise<MongoClient | null> {
       maxPoolSize: 10,
       minPoolSize: 2,
     });
-
+   
     try {
       await nextClient.connect();
       client = nextClient;

@@ -57,6 +57,14 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
 
       <Button {...linkProps}>Link to user</Button>
 
+      <Button
+        {...useLink({
+          href: Platform.OS === 'web' ? '/spots' : '/spots',
+        })}
+      >
+        View Surf Spots
+      </Button>
+
       <SheetDemo />
     </YStack>
   )
