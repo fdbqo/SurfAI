@@ -37,7 +37,8 @@
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
     "react-native-svg": "15.8.0",
-    "react-native-web": "^0.20.0"
+    "react-native-web": "^0.20.0",
+    "shared": "0.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.6",
