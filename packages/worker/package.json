@@ -4,7 +4,10 @@
   "private": true,
   "main": "src/updateConditions.ts",
   "scripts": {
-    "update-conditions": "tsx src/updateConditions.ts"
+    "worker": "tsx src/worker.ts",
+    "update-conditions": "tsx src/updateConditions.ts",
+    "aggregate-daily": "tsx src/aggregateDaily.ts",
+    "cleanup-old": "tsx src/cleanupOldData.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.0",

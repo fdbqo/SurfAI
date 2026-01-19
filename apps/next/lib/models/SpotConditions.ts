@@ -3,20 +3,30 @@ import mongoose, { Schema, Document } from 'mongoose'
 export interface ISpotConditions extends Document {
   spotId: string
   timestamp: Date
+  modelRun: string
   swellHeight: number
   swellPeriod: number
   swellDirection: number
+  swellPeakPeriod?: number
+  secondarySwellHeight?: number
+  secondarySwellPeriod?: number
+  secondarySwellDirection?: number
+  secondarySwellPeakPeriod?: number
   waveHeight: number
   wavePeriod: number
+  waveDirection?: number
   windSpeed10m: number
   windSpeed2m: number
   windDirection: number
   seaTemperature?: number
+  pressure?: number
+  visibility?: number
   tideHeight?: number
-  tideState?: string
+  tideState?: "rising" | "falling" | "high" | "low"
   nextHigh?: Date
   nextLow?: Date
-  modelRun: string
+  dataQuality?: number
+  sourceModel?: "open-meteo" | "stormglass" | "combined"
 }
 
 const SpotConditionsSchema = new Schema<ISpotConditions>(
@@ -32,6 +42,10 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
       default: Date.now,
       index: true,
     },
+    modelRun: {
+      type: String,
+      required: true,
+    },
     swellHeight: {
       type: Number,
       required: true,
@@ -44,6 +58,26 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
       type: Number,
       required: true,
     },
+    swellPeakPeriod: {
+      type: Number,
+      required: false,
+    },
+    secondarySwellHeight: {
+      type: Number,
+      required: false,
+    },
+    secondarySwellPeriod: {
+      type: Number,
+      required: false,
+    },
+    secondarySwellDirection: {
+      type: Number,
+      required: false,
+    },
+    secondarySwellPeakPeriod: {
+      type: Number,
+      required: false,
+    },
     waveHeight: {
       type: Number,
       required: true,
@@ -51,6 +85,10 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
     wavePeriod: {
       type: Number,
       required: true,
+    },
+    waveDirection: {
+      type: Number,
+      required: false,
     },
     windSpeed10m: {
       type: Number,
@@ -68,12 +106,21 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
       type: Number,
       required: false,
     },
+    pressure: {
+      type: Number,
+      required: false,
+    },
+    visibility: {
+      type: Number,
+      required: false,
+    },
     tideHeight: {
       type: Number,
       required: false,
     },
     tideState: {
       type: String,
+      enum: ["rising", "falling", "high", "low"],
       required: false,
     },
     nextHigh: {
@@ -84,9 +131,16 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
       type: Date,
       required: false,
     },
-    modelRun: {
+    dataQuality: {
+      type: Number,
+      required: false,
+      min: 0,
+      max: 1,
+    },
+    sourceModel: {
       type: String,
-      required: true,
+      enum: ["open-meteo", "stormglass", "combined"],
+      required: false,
     },
   },
   {
@@ -94,7 +148,6 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
   }
 )
 
-// Compound index for fast queries: get latest conditions by spotId
 SpotConditionsSchema.index({ spotId: 1, timestamp: -1 })
 
 export const SpotConditions =

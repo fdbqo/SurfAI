@@ -1,9 +1,11 @@
 import mongoose, { Schema, Document } from 'mongoose'
 
-export interface ISpotConditions extends Document {
+export interface ISpotConditionsHourly extends Document {
   spotId: string
-  timestamp: Date
+  timestamp: Date // UTC
   modelRun: string
+  localTime: string // ISO string in spot's timezone
+  localHour: number // 0-23 in spot's timezone
   swellHeight: number
   swellPeriod: number
   swellDirection: number
@@ -29,7 +31,7 @@ export interface ISpotConditions extends Document {
   sourceModel?: "open-meteo" | "stormglass" | "combined"
 }
 
-const SpotConditionsSchema = new Schema<ISpotConditions>(
+const SpotConditionsHourlySchema = new Schema<ISpotConditionsHourly>(
   {
     spotId: {
       type: String,
@@ -39,12 +41,21 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
     timestamp: {
       type: Date,
       required: true,
-      default: Date.now,
       index: true,
     },
     modelRun: {
       type: String,
       required: true,
+    },
+    localTime: {
+      type: String,
+      required: true,
+    },
+    localHour: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 23,
     },
     swellHeight: {
       type: Number,
@@ -148,10 +159,16 @@ const SpotConditionsSchema = new Schema<ISpotConditions>(
   }
 )
 
-SpotConditionsSchema.index({ spotId: 1, timestamp: -1 })
-SpotConditionsSchema.index({ timestamp: 1 })
+// Indexes for efficient queries and TTL
+SpotConditionsHourlySchema.index({ spotId: 1, timestamp: -1 })
+SpotConditionsHourlySchema.index({ timestamp: 1 }) // For TTL cleanup
 
-export const SpotConditions =
-  mongoose.models.SpotConditions ||
-  mongoose.model<ISpotConditions>('SpotConditions', SpotConditionsSchema)
+export const SpotConditionsHourly =
+  mongoose.models.SpotConditionsHourly ||
+  mongoose.model<ISpotConditionsHourly>('SpotConditionsHourly', SpotConditionsHourlySchema)
+
+
+
+
+
 
