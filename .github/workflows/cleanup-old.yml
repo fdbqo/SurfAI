@@ -1,14 +1,14 @@
-name: Update Surf Conditions
+name: Cleanup Old Data
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
   workflow_dispatch:  # Allow manual runs
 
 jobs:
-  update-conditions:
+  cleanup-old:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -25,12 +25,19 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Run update conditions
+      - name: Cleanup old data
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
-          STORMGLASS_API_KEY: ${{ secrets.STORMGLASS_API_KEY }}
+          RETENTION_DAYS: ${{ vars.RETENTION_DAYS || '30' }}
         run: |
           cd packages/worker
-          yarn worker update-conditions
+          yarn worker cleanup-old
+
+
+
+
+
+
+
 

@@ -14,6 +14,7 @@ export interface ScoringInput {
   windDirection: number // degrees (0-360)
   spotOrientation: number // degrees (0 = North)
   ability?: SurferAbility
+  localHour?: number // 0-23 for nighttime suppression
 }
 
 export function scoreSpot(input: ScoringInput): SurfScore {
@@ -30,9 +31,13 @@ export function scoreSpot(input: ScoringInput): SurfScore {
     windDirection,
     spotOrientation,
     ability = 'intermediate',
+    localHour,
   } = input
 
   const windSpeedForScoring = windSpeed2m ?? windSpeed ?? 0
+  
+  // Nighttime suppression: reduce score significantly for hours 0-4 and 22-23
+  const isNightTime = localHour !== undefined && (localHour < 5 || localHour > 22)
 
   // swell exposure: check if swell direction aligns with spot orientation
   let angleDiff = Math.abs(swellDirection - spotOrientation)
@@ -161,7 +166,13 @@ export function scoreSpot(input: ScoringInput): SurfScore {
     }
   }
 
-  const final = Math.max(0, Math.min(score, 10))
+  let final = Math.max(0, Math.min(score, 10))
+  
+  // Apply nighttime suppression
+  if (isNightTime) {
+    final *= 0.05 // Reduce to 5% of original score
+    reasons.push('Night-time conditions (very limited visibility)')
+  }
 
   return {
     score: final,
