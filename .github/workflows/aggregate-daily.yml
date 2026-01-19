@@ -1,0 +1,42 @@
+name: Aggregate Daily Data
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # Daily at 1 AM UTC
+  workflow_dispatch:  # Allow manual runs
+
+jobs:
+  aggregate-daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Aggregate daily data
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+        run: |
+          cd packages/worker
+          yarn worker aggregate-daily
+
+
+
+
+
+
+
+

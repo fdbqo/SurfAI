@@ -1,0 +1,43 @@
+name: Cleanup Old Data
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
+  workflow_dispatch:  # Allow manual runs
+
+jobs:
+  cleanup-old:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Cleanup old data
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+          RETENTION_DAYS: ${{ vars.RETENTION_DAYS || '30' }}
+        run: |
+          cd packages/worker
+          yarn worker cleanup-old
+
+
+
+
+
+
+
+
