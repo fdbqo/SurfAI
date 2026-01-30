@@ -41,7 +41,6 @@ const SpotConditionsHourlySchema = new Schema<ISpotConditionsHourly>(
     timestamp: {
       type: Date,
       required: true,
-      index: true,
     },
     modelRun: {
       type: String,
