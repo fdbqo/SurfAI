@@ -9,6 +9,7 @@ import type { SurferAbility } from 'shared/scoring'
 interface SpotWithConditions extends SpotConditions {
   spotName: string
   reasons?: string[]
+  timestamp?: Date | string
 }
 
 type NavigationLevel = 'countries' | 'regions' | 'spots'
@@ -24,6 +25,7 @@ export default function SpotsPage() {
   const [error, setError] = useState<string | null>(null)
   const [ability, setAbility] = useState<SurferAbility>('intermediate')
   const [navigation, setNavigation] = useState<NavigationState>({ level: 'countries' })
+  const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null)
 
   // Fetch all conditions upfront to avoid loading screens
   useEffect(() => {
@@ -42,10 +44,20 @@ export default function SpotsPage() {
         
         // Create a map for quick lookup
         const map = new Map<string, SpotWithConditions>()
+        let latestTimestamp: Date | null = null
+        
         spots.forEach((spot: SpotWithConditions) => {
           map.set(spot.spotId, spot)
+          // Track the latest timestamp from all spots
+          if (spot.timestamp) {
+            const spotTime = typeof spot.timestamp === 'string' ? new Date(spot.timestamp) : spot.timestamp
+            if (!latestTimestamp || spotTime > latestTimestamp) {
+              latestTimestamp = spotTime
+            }
+          }
         })
         setConditionsMap(map)
+        setLastFetchTime(latestTimestamp || new Date())
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
@@ -146,6 +158,13 @@ export default function SpotsPage() {
             Scores are adjusted based on your ability level
           </Paragraph>
         </YStack>
+        {lastFetchTime && (
+          <YStack gap="$1">
+            <Paragraph size="$2" color="$color10">
+              Last updated: {formatTimestamp(lastFetchTime)}
+            </Paragraph>
+          </YStack>
+        )}
       </YStack>
       <Separator />
 
@@ -246,6 +265,39 @@ export default function SpotsPage() {
       )}
     </YStack>
   )
+}
+
+function formatTimestamp(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  // Format: "Dec 18, 2024 at 2:30 PM" or relative time
+  const dateStr = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  const timeStr = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  // Show relative time if recent, otherwise show full date/time
+  if (diffMins < 1) {
+    return `Just now (${dateStr} at ${timeStr})`
+  } else if (diffMins < 60) {
+    return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago (${dateStr} at ${timeStr})`
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago (${dateStr} at ${timeStr})`
+  } else if (diffDays === 1) {
+    return `Yesterday at ${timeStr}`
+  } else {
+    return `${dateStr} at ${timeStr}`
+  }
 }
 
 function FolderCard({ 
@@ -472,6 +524,21 @@ function SpotCard({ spot }: { spot: SpotWithConditions }) {
                   ))}
                 </XStack>
               )}
+            </YStack>
+          </>
+        )}
+
+        {/* Timestamp */}
+        {spot.timestamp && (
+          <>
+            <Separator />
+            <YStack gap="$1">
+              <Paragraph size="$2" color="$color10" fontWeight="500">
+                📅 Last updated:
+              </Paragraph>
+              <Paragraph size="$3" color="$color11">
+                {formatTimestamp(typeof spot.timestamp === 'string' ? new Date(spot.timestamp) : spot.timestamp)}
+              </Paragraph>
             </YStack>
           </>
         )}

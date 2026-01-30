@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { allSpots, scoreSpot } from 'shared'
 import type { SpotConditions } from 'shared/types'
-import { SpotConditions as SpotConditionsModel, type ISpotConditions } from '../../../../lib/models/SpotConditions'
+import { SpotConditionsHourly } from '../../../../lib/models/SpotConditionsHourly'
 import { connectMongo } from '../../../../lib/mongodb'
 
 // GET /api/surf/conditions
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const spotIds = spots.map((s) => s.id)
     
-    const latestConditionsList = await SpotConditionsModel.aggregate([
+    const latestConditionsList = await SpotConditionsHourly.aggregate([
       { $match: { spotId: { $in: spotIds } } },
       { $sort: { spotId: 1, timestamp: -1 } },
       {
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     ]).exec()
 
     const conditionsMap = new Map(
-      latestConditionsList.map((item) => [item.latest.spotId, item.latest as ISpotConditions])
+      latestConditionsList.map((item) => [item.latest.spotId, item.latest])
     )
 
     const conditionsPromises = spots.map(async (spot) => {
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
         score: score.score,
         reasons: score.reasons,
         timestamp: latestConditions.timestamp,
-      } as SpotConditions & { spotName: string; reasons: string[]; timestamp: Date }
+      } as SpotConditions & { spotName: string; reasons: string[]; timestamp: Date; localHour?: number }
     })
 
     const conditions = await Promise.all(conditionsPromises)

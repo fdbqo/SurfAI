@@ -36,7 +36,6 @@ const SpotForecastDailySchema = new Schema<ISpotForecastDaily>(
     date: {
       type: Date,
       required: true,
-      index: true,
     },
     dayIndex: {
       type: Number,
