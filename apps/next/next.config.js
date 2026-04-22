@@ -46,6 +46,14 @@ module.exports = () => {
     experimental: {
       scrollRestoration: true,
     },
+    webpack: (config) => {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'app': join(__dirname, '../../packages/app'),
+        '@my/ui': join(__dirname, '../../packages/ui'),
+      }
+      return config
+    },
   }
 
   for (const plugin of plugins) {

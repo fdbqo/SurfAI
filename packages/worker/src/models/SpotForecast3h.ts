@@ -29,7 +29,6 @@ const SpotForecast3hSchema = new Schema<ISpotForecast3h>(
     blockStart: {
       type: Date,
       required: true,
-      index: true,
     },
     modelRunTime: {
       type: Date,
