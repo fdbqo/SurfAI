@@ -4,10 +4,16 @@ import { useEffect, useState, useMemo } from 'react'
 import { H1, YStack, XStack, Card, Paragraph, Separator, Button, useMedia } from '@my/ui'
 import { allSpots } from 'shared'
 import type { SpotConditions } from 'shared/types'
-import type { SurferAbility } from 'shared/scoring'
 
+/** Latest hourly conditions + catalog fields (no server score). */
 interface SpotWithConditions extends SpotConditions {
   spotName: string
+  modelRun?: string
+  localTime?: string
+  localHour?: number
+  sourceModel?: string
+  error?: string
+  code?: string
   reasons?: string[]
   timestamp?: Date | string
 }
@@ -23,7 +29,6 @@ export default function SpotsPage() {
   const [conditionsMap, setConditionsMap] = useState<Map<string, SpotWithConditions>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [ability, setAbility] = useState<SurferAbility>('intermediate')
   const [navigation, setNavigation] = useState<NavigationState>({ level: 'countries' })
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null)
 
@@ -32,12 +37,17 @@ export default function SpotsPage() {
     async function fetchAllConditions() {
       try {
         setLoading(true)
-        const url = `/api/surf/conditions?ability=${ability}`
-        const response = await fetch(url, {
+        setError(null)
+        const response = await fetch('/api/surf/conditions', {
           cache: 'no-store',
         })
         if (!response.ok) {
-          throw new Error('Failed to fetch conditions')
+          const errBody = await response.json().catch(() => ({} as { error?: string; detail?: string }))
+          throw new Error(
+            (errBody as { error?: string; detail?: string }).detail ||
+              (errBody as { error?: string }).error ||
+              `Request failed (${response.status})`
+          )
         }
         const data = await response.json()
         const spots = Array.isArray(data) ? data : [data]
@@ -48,8 +58,7 @@ export default function SpotsPage() {
         
         spots.forEach((spot: SpotWithConditions) => {
           map.set(spot.spotId, spot)
-          // Track the latest timestamp from all spots
-          if (spot.timestamp) {
+          if (!('error' in spot) && spot.timestamp) {
             const spotTime = typeof spot.timestamp === 'string' ? new Date(spot.timestamp) : spot.timestamp
             if (!latestTimestamp || spotTime > latestTimestamp) {
               latestTimestamp = spotTime
@@ -66,7 +75,7 @@ export default function SpotsPage() {
     }
 
     fetchAllConditions()
-  }, [ability])
+  }, [])
 
   // Group spots by country and region
   const groupedSpots = useMemo(() => {
@@ -118,46 +127,9 @@ export default function SpotsPage() {
     <YStack flex={1} p="$4" bg="$background" gap="$4">
       <YStack gap="$3">
         <H1>Surf Spots</H1>
-        <YStack gap="$2">
-          <Paragraph size="$3" color="$color10">
-            Your Ability Level:
-          </Paragraph>
-          <XStack gap="$2" flexWrap="wrap">
-            <Button
-              size="$3"
-              backgroundColor={ability === 'beginner' ? '$blue8' : '$color4'}
-              color={ability === 'beginner' ? '$color12' : '$color11'}
-              borderWidth={ability === 'beginner' ? 2 : 1}
-              borderColor={ability === 'beginner' ? '$blue10' : '$borderColor'}
-              onPress={() => setAbility('beginner')}
-            >
-              Beginner
-            </Button>
-            <Button
-              size="$3"
-              backgroundColor={ability === 'intermediate' ? '$blue8' : '$color4'}
-              color={ability === 'intermediate' ? '$color12' : '$color11'}
-              borderWidth={ability === 'intermediate' ? 2 : 1}
-              borderColor={ability === 'intermediate' ? '$blue10' : '$borderColor'}
-              onPress={() => setAbility('intermediate')}
-            >
-              Intermediate
-            </Button>
-            <Button
-              size="$3"
-              backgroundColor={ability === 'advanced' ? '$blue8' : '$color4'}
-              color={ability === 'advanced' ? '$color12' : '$color11'}
-              borderWidth={ability === 'advanced' ? 2 : 1}
-              borderColor={ability === 'advanced' ? '$blue10' : '$borderColor'}
-              onPress={() => setAbility('advanced')}
-            >
-              Advanced
-            </Button>
-          </XStack>
-          <Paragraph size="$2" color="$color10" fontStyle="italic">
-            Scores are adjusted based on your ability level
-          </Paragraph>
-        </YStack>
+        <Paragraph size="$2" color="$color10">
+          Live values from the latest hourly store (Open-Meto / optional tide sources).
+        </Paragraph>
         {lastFetchTime && (
           <YStack gap="$1">
             <Paragraph size="$2" color="$color10">
@@ -247,7 +219,7 @@ export default function SpotsPage() {
         >
           {currentSpots.map((spot) => {
             const conditions = conditionsMap.get(spot.id)
-            if (!conditions) {
+            if (!conditions || 'error' in conditions) {
               return (
                 <Card
                   key={spot.id}
@@ -255,7 +227,12 @@ export default function SpotsPage() {
                   bg="$color2"
                   borderColor="$borderColor"
                 >
-                  <Paragraph>{spot.name} - No conditions available</Paragraph>
+                  <Paragraph>
+                    {spot.name} —{' '}
+                    {conditions && 'error' in conditions
+                      ? conditions.error
+                      : 'No conditions available'}
+                  </Paragraph>
                 </Card>
               )
             }
@@ -340,16 +317,6 @@ function FolderCard({
 }
 
 function SpotCard({ spot }: { spot: SpotWithConditions }) {
-  const media = useMedia()
-  const isSmallScreen = !media.sm
-  const isMediumScreen = media.sm && !media.md
-
-  const getScoreColor = (score: number) => {
-    if (score >= 7) return '$green10'
-    if (score >= 4) return '$yellow10'
-    return '$red10'
-  }
-
   const getDirection = (degrees: number) => {
     const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
     const index = Math.round(degrees / 45) % 8
@@ -381,19 +348,17 @@ function SpotCard({ spot }: { spot: SpotWithConditions }) {
       borderColor="$borderColor"
     >
       <YStack gap="$3">
-        {/* Header with Score */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <Paragraph size="$5" fontWeight="600" color="$color12">
-            {spot.spotName}
-          </Paragraph>
-          <XStack gap="$1" alignItems="baseline">
-            <Paragraph size="$7" fontWeight="bold" color={getScoreColor(spot.score ?? 0)}>
-              {(spot.score ?? 0).toFixed(1)}
+        <XStack justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="$2">
+          <YStack flex={1} gap="$1">
+            <Paragraph size="$5" fontWeight="600" color="$color12">
+              {spot.spotName}
             </Paragraph>
-            <Paragraph size="$3" color="$color10">
-              /10
-            </Paragraph>
-          </XStack>
+            {spot.sourceModel ? (
+              <Paragraph size="$2" color="$color10" textTransform="capitalize">
+                Source: {spot.sourceModel}
+              </Paragraph>
+            ) : null}
+          </YStack>
         </XStack>
 
         <Separator />
@@ -473,60 +438,6 @@ function SpotCard({ spot }: { spot: SpotWithConditions }) {
             Wind adjusted from 10m meteorological height to ~2-3m near-surface for realistic surf conditions.
           </Paragraph>
         </YStack>
-
-        {/* Score Reasons */}
-        {spot.reasons && spot.reasons.length > 0 && (
-          <>
-            <Separator />
-            <YStack gap="$2">
-              <Paragraph size="$3" fontWeight="600" color="$color11">
-                📋 Why this score?
-              </Paragraph>
-              {isSmallScreen ? (
-                /* Mobile: Full list */
-                <YStack gap="$2">
-                  {spot.reasons.map((reason, idx) => (
-                    <XStack key={idx} gap="$2" alignItems="flex-start">
-                      <Paragraph size="$3" color="$green10">✓</Paragraph>
-                      <Paragraph size="$3" color="$color11" flex={1}>
-                        {reason}
-                      </Paragraph>
-                    </XStack>
-                  ))}
-                </YStack>
-              ) : (
-                /* Web: Compact cards in grid - 2 per row when main cards are 3, 1 per row when main cards are 2 */
-                <XStack
-                  gap="$2"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: isMediumScreen
-                      ? '1fr'
-                      : 'repeat(2, 1fr)',
-                  }}
-                >
-                  {spot.reasons.map((reason, idx) => (
-                    <Card
-                      key={idx}
-                      p="$2"
-                      bg="$color3"
-                      borderColor="$borderColor"
-                      borderWidth={1}
-                      borderRadius="$2"
-                    >
-                      <XStack gap="$1.5" alignItems="center">
-                        <Paragraph size="$2" color="$green10">✓</Paragraph>
-                        <Paragraph size="$2" color="$color11">
-                          {reason}
-                        </Paragraph>
-                      </XStack>
-                    </Card>
-                  ))}
-                </XStack>
-              )}
-            </YStack>
-          </>
-        )}
 
         {/* Timestamp */}
         {spot.timestamp && (

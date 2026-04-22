@@ -1,38 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { allSpots, scoreSpot } from 'shared'
-import type { SpotConditions } from 'shared/types'
+import { allSpots, type Spot } from 'shared'
 import { SpotConditionsHourly } from '../../../../lib/models/SpotConditionsHourly'
 import { connectMongo } from '../../../../lib/mongodb'
 
-// GET /api/surf/conditions
-// query params: spot (optional spot ID), ability (beginner/intermediate/advanced)
+/**
+ * GET /api/surf/conditions
+ * Query: spot (optional) — if set, only that spot; otherwise all known spots.
+ * Returns the latest hourly row per spot (raw fields from Mongo, no server-side score).
+ * Missing data for a spot: { spotId, spotName, error, code }.
+ */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const spotId = searchParams.get('spot')
-  const abilityParam = searchParams.get('ability')
-
-  const validAbilities = ['beginner', 'intermediate', 'advanced'] as const
-  const ability = validAbilities.includes(abilityParam as any)
-    ? (abilityParam as 'beginner' | 'intermediate' | 'advanced')
-    : 'intermediate'
 
   try {
     await connectMongo()
-    console.log('[MongoDB] Connected, fetching conditions from database')
 
-    const spots = spotId
-      ? allSpots.filter((s) => s.id === spotId)
-      : allSpots
+    const spots = spotId ? allSpots.filter((s) => s.id === spotId) : allSpots
 
     if (spots.length === 0) {
       return NextResponse.json(
-        { error: 'Spot not found' },
+        { error: 'Spot not found in catalog', code: 'SPOT_NOT_FOUND' },
         { status: 404 }
       )
     }
 
     const spotIds = spots.map((s) => s.id)
-    
+
     const latestConditionsList = await SpotConditionsHourly.aggregate([
       { $match: { spotId: { $in: spotIds } } },
       { $sort: { spotId: 1, timestamp: -1 } },
@@ -45,67 +39,54 @@ export async function GET(request: NextRequest) {
     ]).exec()
 
     const conditionsMap = new Map(
-      latestConditionsList.map((item) => [item.latest.spotId, item.latest])
+      latestConditionsList.map((item) => [item.latest.spotId as string, item.latest])
     )
 
-    const conditionsPromises = spots.map(async (spot) => {
-      const latestConditions = conditionsMap.get(spot.id) || null
+    const rows = spots.map((spot) => {
+      const doc = conditionsMap.get(spot.id) as Record<string, unknown> | undefined
 
-      if (!latestConditions) {
-        console.log(`[MongoDB] No conditions found for spot: ${spot.name} (${spot.id})`)
+      if (!doc) {
         return {
           spotId: spot.id,
           spotName: spot.name,
-          error: 'No conditions data available',
+          error: 'No conditions data in database for this spot yet.',
+          code: 'NO_HOURLY_DATA' as const,
         }
       }
 
-      // Calculate score
-      const score = scoreSpot({
-        swellHeight: latestConditions.swellHeight,
-        swellPeriod: latestConditions.swellPeriod,
-        swellDirection: latestConditions.swellDirection,
-        waveHeight: latestConditions.waveHeight,
-        wavePeriod: latestConditions.wavePeriod,
-        windSpeed2m: latestConditions.windSpeed2m,
-        windSpeed: latestConditions.windSpeed2m,
-        windSpeed10m: latestConditions.windSpeed10m,
-        windDirection: latestConditions.windDirection,
-        spotOrientation: spot.orientation,
-        ability,
-      })
-
-      return {
-        spotId: spot.id,
-        spotName: spot.name,
-        swellHeight: latestConditions.swellHeight,
-        swellPeriod: latestConditions.swellPeriod,
-        swellDirection: latestConditions.swellDirection,
-        waveHeight: latestConditions.waveHeight,
-        wavePeriod: latestConditions.wavePeriod,
-        windSpeed: latestConditions.windSpeed2m,
-        windSpeed10m: latestConditions.windSpeed10m,
-        windSpeed2m: latestConditions.windSpeed2m,
-        windDirection: latestConditions.windDirection,
-        score: score.score,
-        reasons: score.reasons,
-        timestamp: latestConditions.timestamp,
-      } as SpotConditions & { spotName: string; reasons: string[]; timestamp: Date; localHour?: number }
+      return toLiveResponse(spot, doc)
     })
 
-    const conditions = await Promise.all(conditionsPromises)
-    const successCount = conditions.filter((c) => !('error' in c)).length
-    console.log(`[MongoDB] Returning ${successCount}/${conditions.length} spots with conditions`)
-    
-    return NextResponse.json(
-      spotId && conditions.length === 1 ? conditions[0] : conditions
-    )
+    if (process.env.NODE_ENV === 'development') {
+      const ok = rows.filter((r) => !('error' in r)).length
+      console.log(`[api/surf/conditions] ${ok}/${rows.length} spots with data`)
+    }
+
+    if (spotId && rows.length === 1) {
+      return NextResponse.json(rows[0], { status: 200 })
+    }
+    return NextResponse.json(rows, { status: 200 })
   } catch (error) {
-    console.error('Error fetching surf conditions:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch surf conditions' },
-      { status: 500 }
-    )
+    const message =
+      error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error'
+    console.error('[api/surf/conditions]', error)
+    const body: { error: string; code: string; detail?: string } = {
+      error: 'Failed to load surf conditions',
+      code: 'INTERNAL',
+    }
+    if (process.env.NODE_ENV === 'development') {
+      body.detail = message
+    }
+    return NextResponse.json(body, { status: 500 })
   }
 }
 
+function toLiveResponse(spot: Spot, doc: Record<string, unknown>) {
+  // Strip Mongo / Mongoose metadata; keep one spotId (catalog id).
+  const { _id, __v, spotId: _sid, ...rest } = doc
+  return {
+    spotId: spot.id,
+    spotName: spot.name,
+    ...rest,
+  }
+}

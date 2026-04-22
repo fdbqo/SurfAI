@@ -134,3 +134,7 @@ expo-env.d.ts
 .env
 .env.local
 .env.*.local
+
+# Firebase config (do not commit secrets)
+google-services.json
+GoogleService-Info.plist

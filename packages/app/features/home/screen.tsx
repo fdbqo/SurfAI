@@ -1,29 +1,15 @@
-import {
-  Anchor,
-  Button,
-  H1,
-  Paragraph,
-  Separator,
-  Sheet,
-  SwitchRouterButton,
-  SwitchThemeButton,
-  useToastController,
-  XStack,
-  YStack
-} from '@my/ui'
-import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
-import { useState } from 'react'
+import { Button, H1, Paragraph, Separator, SwitchRouterButton, SwitchThemeButton, XStack, YStack } from '@my/ui'
 import { Platform } from 'react-native'
-import { useLink } from 'solito/navigation'
+import { useRouter } from 'solito/navigation'
+import { useDevicePrefs } from 'app/provider/device-prefs'
 
 export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
-  const linkTarget = pagesMode ? '/pages-example-user' : '/user'
-  const linkProps = useLink({
-    href: `${linkTarget}/nate`,
-  })
+  const { prefs, loading } = useDevicePrefs()
+  const router = useRouter()
+  const isNew = !loading && !prefs.onboardingCompleted
 
   return (
-    <YStack flex={1} justify="center" items="center" gap="$8" p="$4" bg="$background">      
+    <YStack flex={1} justify="center" items="center" gap="$6" p="$4" bg="$background">
       <XStack
         position="absolute"
         width="100%"
@@ -41,95 +27,37 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
         )}
       </XStack>
 
-      <YStack gap="$4">
+      <YStack gap="$4" maxWidth={560} width="100%">
         <H1 text="center" color="$color12">
-          Welcome to Tamagui.
+          Surf AI
         </H1>
         <Paragraph color="$color10" text="center">
-          Here's a basic starter to show navigating from one screen to another.
+          Local-first surf preferences + alerts, with optional transfer codes to link devices.
         </Paragraph>
         <Separator />
-        <Paragraph text="center">
-          This screen uses the same code on Next.js and React Native.
-        </Paragraph>
-        <Separator />
-      </YStack>
-
-      <Button {...linkProps}>Link to user</Button>
-
-      <Button
-        {...useLink({
-          href: Platform.OS === 'web' ? '/spots' : '/spots',
-        })}
-      >
-        View Surf Spots
-      </Button>
-
-      <SheetDemo />
-    </YStack>
-  )
-}
-
-function SheetDemo() {
-  const toast = useToastController()
-
-  const [open, setOpen] = useState(false)
-  const [position, setPosition] = useState(0)
-
-  return (
-    <>
-      <Button
-        size="$6"
-        icon={open ? ChevronDown : ChevronUp}
-        circular
-        onPress={() => setOpen((x) => !x)}
-      />
-      <Sheet
-        modal
-        animation="medium"
-        open={open}
-        onOpenChange={setOpen}
-        snapPoints={[80]}
-        position={position}
-        onPositionChange={setPosition}
-        dismissOnSnapToBottom
-      >
-        <Sheet.Overlay
-          bg="$shadow4"
-          animation="lazy"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-        />
-        <Sheet.Handle bg="$color8" />
-        <Sheet.Frame items="center" justify="center" gap="$10" bg="$color2">
-          <XStack gap="$2">
-            <Paragraph text="center">Made by</Paragraph>
-            <Anchor color="$blue10" href="https://twitter.com/natebirdman" target="_blank">
-              @natebirdman,
-            </Anchor>
-            <Anchor
-              color="$blue10"
-              href="https://github.com/tamagui/tamagui"
-              target="_blank"
-              rel="noreferrer"
-            >
-              give it a ⭐️
-            </Anchor>
+        {loading ? (
+          <Paragraph text="center" color="$color10">
+            Loading…
+          </Paragraph>
+        ) : isNew ? (
+          <YStack gap="$2">
+            <Button onPress={() => router.push('/profile/transfer')}>Transfer from another device</Button>
+            <Button variant="outlined" onPress={() => router.push('/onboarding')}>
+              Start setup
+            </Button>
+            <Paragraph size="$2" color="$color10" text="center">
+              You can change everything later in Profile.
+            </Paragraph>
+          </YStack>
+        ) : (
+          <XStack gap="$2" flexWrap="wrap" justify="center">
+            <Button onPress={() => router.push('/spots')}>View Surf Spots</Button>
+            <Button variant="outlined" onPress={() => router.push('/profile')}>
+              Profile
+            </Button>
           </XStack>
-
-          <Button
-            size="$6"
-            circular
-            icon={ChevronDown}
-            onPress={() => {
-              setOpen(false)
-              toast.show('Sheet closed!', {
-                message: 'Just showing how toast works...',
-              })
-            }}
-          />
-        </Sheet.Frame>
-      </Sheet>
-    </>
+        )}
+      </YStack>
+    </YStack>
   )
 }

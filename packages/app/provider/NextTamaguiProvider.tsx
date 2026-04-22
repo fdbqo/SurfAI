@@ -6,6 +6,7 @@ import '@tamagui/font-inter/css/700.css'
 import '@tamagui/polyfill-dev'
 
 import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useServerInsertedHTML } from 'next/navigation'
 import { NextThemeProvider, useRootTheme } from '@tamagui/next-theme'
 import { config } from '@my/ui'
@@ -14,6 +15,11 @@ import { StyleSheet } from 'react-native'
 
 export const NextTamaguiProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setTheme] = useRootTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useServerInsertedHTML(() => {
     // @ts-ignore
@@ -56,7 +62,7 @@ export const NextTamaguiProvider = ({ children }: { children: ReactNode }) => {
         setTheme(next as any)
       }}
     >
-      <Provider disableRootThemeClass defaultTheme={theme || 'light'}>
+      <Provider disableRootThemeClass defaultTheme={mounted ? theme || 'light' : 'light'}>
         {children}
       </Provider>
     </NextThemeProvider>

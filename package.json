@@ -30,11 +30,16 @@
     "react-dom": "19.0.0",
     "react-refresh": "^0.14.0",
     "react-native-svg": "15.11.2",
-    "react-native-web": "~0.19.12"
+    "react-native-web": "~0.19.12",
+    "tamagui": "2.0.0-rc.26",
+    "@tamagui/core": "2.0.0-rc.26",
+    "@tamagui/web": "2.0.0-rc.26",
+    "@tamagui/helpers-icon": "2.0.0-rc.26",
+    "@tamagui/lucide-icons": "2.0.0-rc.26"
   },
   "dependencies": {
     "@babel/runtime": "^7.24.6",
-    "@tamagui/cli": "^1.136.1",
+    "@tamagui/cli": "2.0.0-rc.26",
     "check-dependency-version-consistency": "^4.1.0",
     "eslint": "^9.3.0",
     "husky": "^9.1.6",

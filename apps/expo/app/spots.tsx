@@ -9,37 +9,44 @@ import {
   Paragraph,
   Separator,
   Spinner,
-  Button,
 } from '@my/ui'
 import type { SpotConditions } from 'shared/types'
-import type { SurferAbility } from 'shared/scoring'
 
 interface SpotWithConditions extends SpotConditions {
   spotName: string
+  modelRun?: string
+  localTime?: string
+  localHour?: number
+  sourceModel?: string
+  error?: string
+  code?: string
   reasons?: string[]
 }
 
-// Get API URL with platform specific defaults
-function getApiUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL
-  }
+const CONDITIONS_PATH = '/api/surf/conditions'
 
-  const baseUrl = Platform.OS === 'android' 
-    ? 'http://10.0.2.2:3000'
-    : 'http://localhost:3000'
-  
-  return `${baseUrl}/api/surf/conditions`
+/** Next.js origin only (no `/api/...` path). */
+function getNextOrigin(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '')
+  if (fromEnv) {
+    // Android emulator: localhost/127.0.0.1 is the device, not your PC.
+    if (Platform.OS === 'android' && /\b(localhost|127\.0\.0\.1)\b/.test(fromEnv)) {
+      return fromEnv
+        .replace(/\b127\.0\.0\.1\b/g, '10.0.2.2')
+        .replace(/\blocalhost\b/g, '10.0.2.2')
+    }
+    return fromEnv
+  }
+  return Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000'
 }
 
-const API_URL = getApiUrl()
+const API_URL = `${getNextOrigin()}${CONDITIONS_PATH}`
 
 export default function SpotsScreen() {
   const [spots, setSpots] = useState<SpotWithConditions[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [ability, setAbility] = useState<SurferAbility>('intermediate')
 
   return (
     <>
@@ -57,8 +64,6 @@ export default function SpotsScreen() {
         setRefreshing={setRefreshing}
         error={error}
         setError={setError}
-        ability={ability}
-        setAbility={setAbility}
       />
     </>
   )
@@ -73,8 +78,6 @@ function SpotsContent({
   setRefreshing,
   error,
   setError,
-  ability,
-  setAbility,
 }: {
   spots: SpotWithConditions[]
   setSpots: (spots: SpotWithConditions[]) => void
@@ -84,19 +87,19 @@ function SpotsContent({
   setRefreshing: (refreshing: boolean) => void
   error: string | null
   setError: (error: string | null) => void
-  ability: SurferAbility
-  setAbility: (ability: SurferAbility) => void
 }) {
 
   const fetchConditions = async () => {
     try {
       setError(null)
-      const url = `${API_URL}?ability=${ability}`
-      const response = await fetch(url, {
-        cache: 'no-store', 
+      const response = await fetch(API_URL, {
+        cache: 'no-store',
       })
       if (!response.ok) {
-        throw new Error('Failed to fetch conditions')
+        const errBody = await response.json().catch(() => ({} as { error?: string; detail?: string }))
+        throw new Error(
+          errBody.detail || errBody.error || `Request failed (${response.status})`
+        )
       }
       const data = await response.json()
       setSpots(Array.isArray(data) ? data : [data])
@@ -112,7 +115,7 @@ function SpotsContent({
   useEffect(() => {
     fetchConditions()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ability])
+  }, [])
 
   const onRefresh = () => {
     setRefreshing(true)
@@ -135,7 +138,8 @@ function SpotsContent({
           Error: {error}
         </Paragraph>
         <Paragraph mt="$2" size="$3" color="$color10" textAlign="center">
-          Make sure your Next.js dev server is running
+          Start Next on port 3000. On a physical device, set EXPO_PUBLIC_API_URL to your PC LAN IP (e.g.
+          http://192.168.1.10:3000) and run next dev with --hostname 0.0.0.0 so the API is reachable.
         </Paragraph>
       </YStack>
     )
@@ -150,46 +154,9 @@ function SpotsContent({
       <YStack flex={1} p="$4" bg="$background" gap="$4">
         <YStack gap="$3">
           <H1>Ireland Surf Spots</H1>
-          <YStack gap="$2">
-            <Paragraph size="$3" color="$color10">
-              Your Ability Level:
-            </Paragraph>
-            <XStack gap="$2" flexWrap="wrap">
-              <Button
-                size="$3"
-                backgroundColor={ability === 'beginner' ? '$blue8' : '$color4'}
-                color={ability === 'beginner' ? '$color12' : '$color11'}
-                borderWidth={ability === 'beginner' ? 2 : 1}
-                borderColor={ability === 'beginner' ? '$blue10' : '$borderColor'}
-                onPress={() => setAbility('beginner')}
-              >
-                Beginner
-              </Button>
-              <Button
-                size="$3"
-                backgroundColor={ability === 'intermediate' ? '$blue8' : '$color4'}
-                color={ability === 'intermediate' ? '$color12' : '$color11'}
-                borderWidth={ability === 'intermediate' ? 2 : 1}
-                borderColor={ability === 'intermediate' ? '$blue10' : '$borderColor'}
-                onPress={() => setAbility('intermediate')}
-              >
-                Intermediate
-              </Button>
-              <Button
-                size="$3"
-                backgroundColor={ability === 'advanced' ? '$blue8' : '$color4'}
-                color={ability === 'advanced' ? '$color12' : '$color11'}
-                borderWidth={ability === 'advanced' ? 2 : 1}
-                borderColor={ability === 'advanced' ? '$blue10' : '$borderColor'}
-                onPress={() => setAbility('advanced')}
-              >
-                Advanced
-              </Button>
-            </XStack>
-            <Paragraph size="$2" color="$color10" fontStyle="italic">
-              Scores are adjusted based on your ability level
-            </Paragraph>
-          </YStack>
+          <Paragraph size="$2" color="$color10">
+            Live values from the latest hourly data (no server score).
+          </Paragraph>
         </YStack>
         <Separator />
         <YStack gap="$4">
@@ -203,17 +170,17 @@ function SpotsContent({
 }
 
 function SpotCard({ spot }: { spot: SpotWithConditions }) {
-  const getScoreColor = (score: number) => {
-    if (score >= 7) return '$green10'
-    if (score >= 4) return '$yellow10'
-    return '$red10'
-  }
-
-  const getScoreLabel = (score: number) => {
-    if (score >= 8) return 'Excellent'
-    if (score >= 6) return 'Good'
-    if (score >= 4) return 'Fair'
-    return 'Poor'
+  if ('error' in spot && spot.error) {
+    return (
+      <Card size="$4" p="$4" bg="$color2" borderWidth={1} borderColor="$borderColor">
+        <Paragraph size="$4" fontWeight="600" color="$color12">
+          {spot.spotName}
+        </Paragraph>
+        <Paragraph size="$3" color="$color10" mt="$2">
+          {spot.error}
+        </Paragraph>
+      </Card>
+    )
   }
 
   const getDirection = (degrees: number) => {
@@ -229,42 +196,28 @@ function SpotCard({ spot }: { spot: SpotWithConditions }) {
     return { label: isOffshore ? 'Strong Offshore' : 'Strong Onshore', color: '$red10' }
   }
 
-  const windQuality = getWindQuality(spot.windSpeed, spot.windDirection)
+  const wSpeed = spot.windSpeed2m ?? spot.windSpeed ?? 0
+  const windQuality = getWindQuality(wSpeed, spot.windDirection)
   const swellHeight = spot.swellHeight ?? spot.waveHeight
   const swellPeriod = spot.swellPeriod ?? spot.wavePeriod
 
   return (
     <Card
-      elevate
       size="$4"
-      bordered
       p="$4"
       bg="$color2"
+      borderWidth={1}
       borderColor="$borderColor"
     >
       <YStack gap="$4">
-        {/* Header with Score */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <YStack gap="$1">
-            <H1 size="$6">{spot.spotName}</H1>
-            <Paragraph size="$2" color="$color10">
-              {getScoreLabel(spot.score ?? 0)} Conditions
+        <YStack gap="$1">
+          <H1 size="$6">{spot.spotName}</H1>
+          {spot.sourceModel ? (
+            <Paragraph size="$2" color="$color10" textTransform="capitalize">
+              Source: {spot.sourceModel}
             </Paragraph>
-          </YStack>
-          <YStack alignItems="flex-end" gap="$1">
-            <XStack gap="$2" alignItems="center">
-              <Paragraph size="$9" fontWeight="bold" color={getScoreColor(spot.score ?? 0)}>
-                {(spot.score ?? 0).toFixed(1)}
-              </Paragraph>
-              <Paragraph size="$4" color="$color10">
-                /10
-              </Paragraph>
-            </XStack>
-            <Paragraph size="$2" color="$color10">
-              Surf Score
-            </Paragraph>
-          </YStack>
-        </XStack>
+          ) : null}
+        </YStack>
 
         <Separator />
 
@@ -358,25 +311,6 @@ function SpotCard({ spot }: { spot: SpotWithConditions }) {
           </Paragraph>
         </YStack>
 
-        {/* Conditions Summary */}
-        {spot.reasons && spot.reasons.length > 0 && (
-          <>
-            <Separator />
-            <YStack gap="$2">
-              <Paragraph size="$3" fontWeight="600" color="$color11">
-                📋 Conditions Summary
-              </Paragraph>
-              {spot.reasons.map((reason, idx) => (
-                <XStack key={idx} gap="$2" alignItems="flex-start">
-                  <Paragraph size="$3" color="$green10">✓</Paragraph>
-                  <Paragraph size="$3" color="$color11" flex={1}>
-                    {reason}
-                  </Paragraph>
-                </XStack>
-              ))}
-            </YStack>
-          </>
-        )}
       </YStack>
     </Card>
   )

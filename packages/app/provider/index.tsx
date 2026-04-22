@@ -1,28 +1,31 @@
+'use client'
+
 import { useColorScheme } from 'react-native'
 import {
-  CustomToast,
   TamaguiProvider,
   type TamaguiProviderProps,
   ToastProvider,
   config,
   isWeb,
 } from '@my/ui'
-import { ToastViewport } from './ToastViewport'
+import { AppToasts } from './AppToasts'
+import { DevicePrefsProvider } from './device-prefs'
 
 export function Provider({
   children,
   defaultTheme = 'light',
   ...rest
-}: Omit<TamaguiProviderProps, 'config'> & { defaultTheme?: string }) {
+}: Omit<TamaguiProviderProps, 'config' | 'defaultTheme'> & { defaultTheme?: string }) {
   const colorScheme = useColorScheme()
   const theme = defaultTheme || (colorScheme === 'dark' ? 'dark' : 'light')
 
   return (
     <TamaguiProvider config={config} defaultTheme={theme} {...rest}>
       <ToastProvider swipeDirection="horizontal" duration={6000} native={isWeb ? [] : ['mobile']}>
-        {children}
-        <CustomToast />
-        <ToastViewport />
+        <DevicePrefsProvider>
+          {children}
+          <AppToasts />
+        </DevicePrefsProvider>
       </ToastProvider>
     </TamaguiProvider>
   )
