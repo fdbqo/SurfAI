@@ -2,13 +2,16 @@
 
 import { Button, Paragraph, YStack } from '@my/ui'
 import { useEffect, useState } from 'react'
-import { useDevicePrefs } from 'app/provider/device-prefs'
+import { clearDevicePrefsStorage, useDevicePrefs } from 'app/provider/device-prefs'
+import { profileCard, profilePrimaryButton } from 'app/features/profile/profileScreenStyles'
 import {
   createEngineClient,
   formatWebDeviceId,
   getEngineBaseUrl,
   getOrCreateStableDeviceId,
   getOrCreateCanonicalUserId,
+  getDeviceToken,
+  resetLocalEngineIdentity,
   setDeviceToken,
   urlBase64ToUint8Array,
   type DeviceIdStorage,
@@ -141,10 +144,114 @@ export function PushNotificationsPanel() {
     }
   }
 
+  async function resetThisDevice() {
+    setBusy(true)
+    setStatus('')
+    try {
+      const stableId = await getOrCreateStableDeviceId(webLocalStorage)
+      const deviceId = formatWebDeviceId(stableId)
+      const token = await getDeviceToken(webLocalStorage)
+
+      // Best-effort: delete the device server-side if we have auth; fall back to disable.
+      try {
+        const baseUrl = getEngineBaseUrl()
+        const client = createEngineClient({
+          baseUrl,
+          getAuthHeaders: async () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+        })
+        if (token) {
+          await client.deleteDevice(deviceId)
+        } else {
+          const reg = await navigator.serviceWorker.ready
+          const sub = await reg.pushManager.getSubscription()
+          const endpoint =
+            sub?.endpoint ||
+            (typeof localStorage !== 'undefined' ? localStorage.getItem(WEB_PUSH_ENDPOINT_KEY) : null)
+          if (endpoint) await client.disableDevice({ channel: 'webpush', endpoint })
+        }
+      } catch {
+        // ignore: still clear local state below
+      }
+
+      // Always unsubscribe locally.
+      try {
+        const reg = await navigator.serviceWorker.ready
+        const sub = await reg.pushManager.getSubscription()
+        await sub?.unsubscribe()
+      } catch {
+        // ignore
+      }
+
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(WEB_PUSH_ENDPOINT_KEY)
+
+      // Unregister the push SW if it’s currently registered.
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(
+          regs.map(async (r) => {
+            const url = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || ''
+            if (url.includes('/push-service-worker.js')) {
+              await r.unregister()
+            }
+          })
+        )
+      } catch {
+        // ignore
+      }
+
+      await resetLocalEngineIdentity(webLocalStorage)
+      await clearDevicePrefsStorage()
+      setStatus('This device was reset. Re-enable notifications to re-register.')
+      if (typeof window !== 'undefined') window.location.reload()
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function deleteAllMyDevices() {
+    setBusy(true)
+    setStatus('')
+    try {
+      const stableId = await getOrCreateStableDeviceId(webLocalStorage)
+      const deviceId = formatWebDeviceId(stableId)
+      const token = await getDeviceToken(webLocalStorage)
+      if (!token) {
+        setStatus('Missing device auth. Reset this device or re-enable notifications first.')
+        return
+      }
+      const baseUrl = getEngineBaseUrl()
+      const client = createEngineClient({
+        baseUrl,
+        getAuthHeaders: async () => ({ Authorization: `Bearer ${token}` }),
+      })
+      await client.deleteMe(deviceId)
+      await resetLocalEngineIdentity(webLocalStorage)
+      await clearDevicePrefsStorage()
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(WEB_PUSH_ENDPOINT_KEY)
+      setStatus('Deleted all devices for this user. This device is now reset.')
+      if (typeof window !== 'undefined') window.location.reload()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (/\\b404\\b/.test(msg)) {
+        await resetLocalEngineIdentity(webLocalStorage)
+        await clearDevicePrefsStorage()
+        if (typeof localStorage !== 'undefined') localStorage.removeItem(WEB_PUSH_ENDPOINT_KEY)
+        setStatus('Account already deleted. This device is now reset.')
+        if (typeof window !== 'undefined') window.location.reload()
+        return
+      }
+      setStatus(msg)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // SSR + first client paint must match (mounted === false) to avoid hydration mismatch.
   if (!mounted) {
     return (
-      <YStack gap="$2" p="$3" borderWidth={1} borderColor="$borderColor" rounded="$4" maxWidth={400}>
+      <YStack gap="$2" p="$3" maxWidth={400} {...profileCard}>
         <Paragraph fontWeight="600">Surf Engine notifications (web)</Paragraph>
         <Paragraph size="$2" color="$color10">
           Preparing notification setup…
@@ -155,7 +262,7 @@ export function PushNotificationsPanel() {
 
   if (!supportsPush) {
     return (
-      <YStack gap="$2" p="$3" borderWidth={1} borderColor="$borderColor" rounded="$4" maxWidth={400}>
+      <YStack gap="$2" p="$3" maxWidth={400} {...profileCard}>
         <Paragraph fontWeight="600">Surf Engine notifications (web)</Paragraph>
         <Paragraph size="$3" color="$color10">
           Push notifications need a secure context (HTTPS) and a browser that supports the Push API.
@@ -165,16 +272,21 @@ export function PushNotificationsPanel() {
   }
 
   return (
-    <YStack gap="$3" p="$3" borderWidth={1} borderColor="$borderColor" rounded="$4" maxWidth={400}>
-      <Paragraph fontWeight="600">Surf Engine notifications (web)</Paragraph>
+    <YStack gap="$3" p="$3" maxWidth={400} {...profileCard}>
+      <Paragraph fontWeight="600">Surf Engine notifications (Web)</Paragraph>
       <Paragraph size="$2" color="$color10">
-        {`Engine: ${getEngineBaseUrl()}`}
       </Paragraph>
-      <Button disabled={busy} onPress={enableWebPush}>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={enableWebPush}>
         Enable notifications
       </Button>
-      <Button disabled={busy} variant="outlined" onPress={disableWebPush}>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={disableWebPush}>
         Disable notifications
+      </Button>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={resetThisDevice}>
+        Reset this device
+      </Button>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={deleteAllMyDevices}>
+        Delete all my devices (GDPR)
       </Button>
       {status ? (
         <Paragraph size="$2" color="$color11">

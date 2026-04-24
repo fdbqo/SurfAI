@@ -165,3 +165,9 @@ export type GetDeviceProfileResponse = {
   ok: boolean
   profile?: EnginePublicDeviceProfile
 }
+
+export type GetMeResponse = {
+  ok: boolean
+  userId?: string
+  deleted?: boolean
+}

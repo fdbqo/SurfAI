@@ -3,6 +3,7 @@
 import { YStack, SizableText, Paragraph, Button } from '@my/ui'
 import { useRouter } from 'solito/navigation'
 import { useDevicePrefs } from 'app/provider/device-prefs'
+import { profilePrimaryButton } from 'app/features/profile/profileScreenStyles'
 
 export function ProfileScreen() {
   const { prefs } = useDevicePrefs()
@@ -18,24 +19,24 @@ export function ProfileScreen() {
           Preferences are stored on this device. Transfer code support is coming back next.
         </Paragraph>
         {!prefs.onboardingCompleted ? (
-          <Button size="$3" onPress={() => router.replace('/onboarding')}>
+          <Button size="$3" {...profilePrimaryButton} onPress={() => router.replace('/onboarding')}>
             Finish onboarding
           </Button>
         ) : null}
       </YStack>
 
       <YStack p="$4" gap="$3" maxWidth={720} width="100%" alignSelf="center">
-        <Button size="$4" onPress={() => router.push('/profile/location')}>
+        <Button size="$4" {...profilePrimaryButton} onPress={() => router.push('/profile/location')}>
           Location
         </Button>
-        <Button size="$4" onPress={() => router.push('/profile/alerts')}>
+        <Button size="$4" {...profilePrimaryButton} onPress={() => router.push('/profile/alerts')}>
           Alerts
         </Button>
-        <Button size="$4" onPress={() => router.push('/profile/transfer')}>
+        <Button size="$4" {...profilePrimaryButton} onPress={() => router.push('/profile/transfer')}>
           Transfer
         </Button>
 
-        <Button variant="outlined" size="$4" onPress={() => router.push('/profile/preferences')}>
+        <Button size="$4" {...profilePrimaryButton} onPress={() => router.push('/profile/preferences')}>
           Edit preferences
         </Button>
       </YStack>

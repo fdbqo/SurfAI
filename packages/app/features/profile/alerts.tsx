@@ -4,6 +4,7 @@ import { Button, Paragraph, SizableText, Switch, XStack, YStack } from '@my/ui'
 import { useRouter } from 'solito/navigation'
 import { PushNotificationsPanel } from 'app/features/notifications/PushNotificationsPanel'
 import { useDevicePrefs } from 'app/provider/device-prefs'
+import { profileBackButton, profileCard } from 'app/features/profile/profileScreenStyles'
 
 export function ProfileAlertsScreen() {
   const { prefs, patchPrefs, loading } = useDevicePrefs()
@@ -17,8 +18,7 @@ export function ProfileAlertsScreen() {
       <YStack gap="$2" maxWidth={720} width="100%" alignSelf="center">
         <XStack justify="flex-start">
           <Button
-            size="$3"
-            variant="outlined"
+            {...profileBackButton}
             onPress={() => {
               try {
                 router.back()
@@ -42,10 +42,8 @@ export function ProfileAlertsScreen() {
           items="center"
           justify="space-between"
           p="$3"
-          rounded="$8"
-          bg={enabled ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.08)'}
-          borderWidth={1}
-          borderColor={enabled ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.20)'}
+          {...profileCard}
+          borderColor={enabled ? 'rgba(16,185,129,0.35)' : '$borderColor'}
         >
           <YStack gap="$1">
             <Paragraph fontWeight="700">Alerts</Paragraph>

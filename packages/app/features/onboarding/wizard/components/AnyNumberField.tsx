@@ -48,11 +48,29 @@ export function AnyNumberField({
               </Paragraph>
             ) : null}
           </>
-        ) : suffix ? (
-          <Paragraph size="$3" color="$color10">
-            {suffix}
-          </Paragraph>
-        ) : null}
+        ) : (
+          <>
+            <YStack
+              width={120}
+              minHeight={44}
+              justify="center"
+              px="$2"
+              rounded="$4"
+              borderWidth={1}
+              borderColor="$borderColor"
+              bg="$color3"
+            >
+              <Paragraph size="$2" color="$color9" textAlign="center">
+                —
+              </Paragraph>
+            </YStack>
+            {suffix ? (
+              <Paragraph size="$3" color="$color10">
+                {suffix}
+              </Paragraph>
+            ) : null}
+          </>
+        )}
       </XStack>
     </YStack>
   )

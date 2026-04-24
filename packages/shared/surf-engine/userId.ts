@@ -21,3 +21,7 @@ export async function setCanonicalUserId(storage: DeviceIdStorage, userId: strin
   await storage.setItem(SURF_ENGINE_USER_ID_STORAGE_KEY, userId)
 }
 
+export async function clearCanonicalUserId(storage: DeviceIdStorage): Promise<void> {
+  await storage.setItem(SURF_ENGINE_USER_ID_STORAGE_KEY, '')
+}
+

@@ -5,13 +5,16 @@ import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import { useState } from 'react'
 import { Platform } from 'react-native'
-import { useDevicePrefs } from 'app/provider/device-prefs'
+import { clearDevicePrefsStorage, useDevicePrefs } from 'app/provider/device-prefs'
+import { profileCard, profilePrimaryButton } from 'app/features/profile/profileScreenStyles'
 import {
   createEngineClient,
   formatMobileDeviceId,
   getEngineBaseUrl,
+  getDeviceToken,
   getOrCreateStableDeviceId,
   getOrCreateCanonicalUserId,
+  resetLocalEngineIdentity,
   setDeviceToken,
   type DeviceIdStorage,
 } from 'shared/surf-engine'
@@ -132,17 +135,94 @@ export function PushNotificationsPanel() {
     }
   }
 
+  async function resetThisDevice() {
+    setBusy(true)
+    setStatus('')
+    try {
+      const stableId = await getOrCreateStableDeviceId(secureStoreAdapter)
+      const deviceId = formatMobileDeviceId(stableId)
+      const token = await getDeviceToken(secureStoreAdapter)
+
+      // Best-effort: delete the device server-side if we have auth; fall back to disable.
+      try {
+        const stored = await AsyncStorage.getItem(EXPO_TOKEN_STORAGE_KEY)
+        const baseUrl = getEngineBaseUrl()
+        const client = createEngineClient({
+          baseUrl,
+          getAuthHeaders: async () => (token ? { Authorization: `Bearer ${token}` } : undefined),
+        })
+        if (token) {
+          await client.deleteDevice(deviceId)
+        } else if (stored) {
+          await client.disableDevice({ channel: 'expo', expoToken: stored })
+        }
+      } catch {
+        // ignore
+      }
+
+      await AsyncStorage.removeItem(EXPO_TOKEN_STORAGE_KEY)
+      await resetLocalEngineIdentity(secureStoreAdapter)
+      await clearDevicePrefsStorage()
+      setStatus('This device was reset. Re-open the app to start fresh.')
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function deleteAllMyDevices() {
+    setBusy(true)
+    setStatus('')
+    try {
+      const stableId = await getOrCreateStableDeviceId(secureStoreAdapter)
+      const deviceId = formatMobileDeviceId(stableId)
+      const token = await getDeviceToken(secureStoreAdapter)
+      if (!token) {
+        setStatus('Missing device auth. Reset this device or re-enable notifications first.')
+        return
+      }
+      const baseUrl = getEngineBaseUrl()
+      const client = createEngineClient({
+        baseUrl,
+        getAuthHeaders: async () => ({ Authorization: `Bearer ${token}` }),
+      })
+      await client.deleteMe(deviceId)
+      await AsyncStorage.removeItem(EXPO_TOKEN_STORAGE_KEY)
+      await resetLocalEngineIdentity(secureStoreAdapter)
+      await clearDevicePrefsStorage()
+      setStatus('Deleted all devices for this user. Re-open the app to start fresh.')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (/\\b404\\b/.test(msg)) {
+        await AsyncStorage.removeItem(EXPO_TOKEN_STORAGE_KEY)
+        await resetLocalEngineIdentity(secureStoreAdapter)
+        await clearDevicePrefsStorage()
+        setStatus('Account already deleted. Re-open the app to start fresh.')
+        return
+      }
+      setStatus(msg)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <YStack gap="$3" p="$3" borderWidth={1} borderColor="$borderColor" rounded="$4" maxWidth={400}>
-      <Paragraph fontWeight="600">Surf Engine notifications (Expo)</Paragraph>
+    <YStack gap="$3" p="$3" maxWidth={400} {...profileCard}>
+      <Paragraph fontWeight="600">Surf Engine notifications (Mobile)</Paragraph>
       <Paragraph size="$2" color="$color10">
-        {`Engine: ${getEngineBaseUrl()}`}
       </Paragraph>
-      <Button disabled={busy} onPress={enableExpoPush}>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={enableExpoPush}>
         Enable notifications
       </Button>
-      <Button disabled={busy} variant="outlined" onPress={disableExpoPush}>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={disableExpoPush}>
         Disable notifications
+      </Button>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={resetThisDevice}>
+        Reset this device
+      </Button>
+      <Button {...profilePrimaryButton} disabled={busy} onPress={deleteAllMyDevices}>
+        Delete all my devices (GDPR)
       </Button>
       {status ? (
         <Paragraph size="$2" color="$color11">

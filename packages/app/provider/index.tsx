@@ -10,6 +10,7 @@ import {
 } from '@my/ui'
 import { AppToasts } from './AppToasts'
 import { DevicePrefsProvider } from './device-prefs'
+import { EngineSessionGuard } from './EngineSessionGuard'
 
 export function Provider({
   children,
@@ -23,6 +24,7 @@ export function Provider({
     <TamaguiProvider config={config} defaultTheme={theme} {...rest}>
       <ToastProvider swipeDirection="horizontal" duration={6000} native={isWeb ? [] : ['mobile']}>
         <DevicePrefsProvider>
+          <EngineSessionGuard />
           {children}
           <AppToasts />
         </DevicePrefsProvider>

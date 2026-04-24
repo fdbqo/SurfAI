@@ -19,6 +19,7 @@ import {
 } from 'shared/surf-engine'
 import { mapEngineProfileToDevicePrefs } from './transferProfileMap'
 import { transferStorage } from './transferStorage'
+import { profileBackButton, profileCard, profilePrimaryButton } from 'app/features/profile/profileScreenStyles'
 
 function formatDeviceId(stableId: string): string {
   return Platform.OS === 'web' ? formatWebDeviceId(stableId) : formatMobileDeviceId(stableId)
@@ -170,8 +171,7 @@ export function ProfileTransferScreen() {
         <YStack gap="$2" maxWidth={720} width="100%" alignSelf="center">
           <XStack justify="flex-start">
             <Button
-              size="$3"
-              variant="outlined"
+              {...profileBackButton}
               onPress={() => {
                 try {
                   router.back()
@@ -193,12 +193,8 @@ export function ProfileTransferScreen() {
         </YStack>
 
         <YStack gap="$3" maxWidth={720} width="100%" alignSelf="center">
-        <YStack gap="$2" p="$3" borderWidth={1} borderColor="$borderColor" rounded="$8">
+        <YStack gap="$2" p="$3" {...profileCard}>
           <Paragraph fontWeight="700">This device</Paragraph>
-            <Paragraph size="$2" color="$color10">
-              Engine URL
-            </Paragraph>
-            <Input value={engineUrl} disabled />
           <Paragraph size="$2" color="$color10">
             Device ID
           </Paragraph>
@@ -218,7 +214,12 @@ export function ProfileTransferScreen() {
               placeholder="Not set"
               disabled
             />
-            <Button size="$3" variant="outlined" disabled={busy || !tokenPreview} onPress={clearToken}>
+            <Button
+              size="$3"
+              {...profilePrimaryButton}
+              disabled={busy || !tokenPreview}
+              onPress={clearToken}
+            >
               Clear token
             </Button>
           </XStack>
@@ -229,10 +230,10 @@ export function ProfileTransferScreen() {
                 token, then come back here.
               </Paragraph>
               <XStack gap="$2" flexWrap="wrap">
-                <Button disabled={busy} onPress={registerThisDevice}>
+                <Button {...profilePrimaryButton} disabled={busy} onPress={registerThisDevice}>
                   Register this device (via Alerts)
                 </Button>
-                <Button variant="outlined" disabled={busy} onPress={() => router.push('/profile/alerts')}>
+                <Button {...profilePrimaryButton} disabled={busy} onPress={() => router.push('/profile/alerts')}>
                   Enable notifications
                 </Button>
               </XStack>
@@ -240,12 +241,12 @@ export function ProfileTransferScreen() {
           ) : null}
         </YStack>
 
-        <YStack gap="$2" p="$3" borderWidth={1} borderColor="$borderColor" rounded="$8">
+        <YStack gap="$2" p="$3" {...profileCard}>
           <Paragraph fontWeight="700">Generate code (source device)</Paragraph>
           <Paragraph size="$2" color="$color10">
             Generates a one-time code (valid for about 10 minutes).
           </Paragraph>
-          <Button disabled={busy || !userId || !deviceId} onPress={generateCode}>
+          <Button {...profilePrimaryButton} disabled={busy || !userId || !deviceId} onPress={generateCode}>
             Generate transfer code
           </Button>
           {generatedCode ? (
@@ -258,7 +259,7 @@ export function ProfileTransferScreen() {
           ) : null}
         </YStack>
 
-        <YStack gap="$2" p="$3" borderWidth={1} borderColor="$borderColor" rounded="$8">
+        <YStack gap="$2" p="$3" {...profileCard}>
           <Paragraph fontWeight="700">Redeem code (target device)</Paragraph>
           <Input
             placeholder="Enter code"
@@ -266,11 +267,11 @@ export function ProfileTransferScreen() {
             value={redeemCode}
             onChangeText={setRedeemCode}
           />
-          <Button disabled={busy || !deviceId || !userId} onPress={redeem}>
+          <Button {...profilePrimaryButton} disabled={busy || !deviceId || !userId} onPress={redeem}>
             Redeem and link this device
           </Button>
           <Paragraph size="$2" color="$color10">
-            If you see a 401, enable notifications once to initialize device auth (mint a device token), then retry.
+            Register device above before linking transfer code.
           </Paragraph>
         </YStack>
 

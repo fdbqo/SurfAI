@@ -6,6 +6,7 @@ import { Button, Input, Paragraph, SizableText, Switch, XStack, YStack } from '@
 import { useRouter } from 'solito/navigation'
 import { useDevicePrefs } from 'app/provider/device-prefs'
 import { getCurrentLocation } from 'app/features/onboarding/location'
+import { profileBackButton, profileCard, profilePrimaryButton } from 'app/features/profile/profileScreenStyles'
 
 export function ProfileLocationScreen() {
   const { prefs, patchPrefs, loading } = useDevicePrefs()
@@ -70,8 +71,7 @@ export function ProfileLocationScreen() {
       <YStack gap="$2" maxWidth={720} width="100%" alignSelf="center">
         <XStack justify="flex-start">
           <Button
-            size="$3"
-            variant="outlined"
+            {...profileBackButton}
             onPress={() => {
               try {
                 router.back()
@@ -90,7 +90,7 @@ export function ProfileLocationScreen() {
       </YStack>
 
       <YStack gap="$4" maxWidth={720} width="100%" alignSelf="center">
-        <YStack gap="$3" p="$4" rounded="$8" bg="rgba(15,23,42,0.03)">
+        <YStack gap="$3" p="$4" {...profileCard}>
           <Paragraph fontWeight="800">Usual location</Paragraph>
           <XStack gap="$2" flexWrap="wrap">
             <Input
@@ -119,7 +119,7 @@ export function ProfileLocationScreen() {
           <Button
             size="$4"
             rounded="$8"
-            variant="outlined"
+            {...profilePrimaryButton}
             disabled={locBusy}
             onPress={async () => {
               setLocationAction('usual')
@@ -139,12 +139,12 @@ export function ProfileLocationScreen() {
           >
             <XStack items="center" justify="center" gap="$2">
               {locationAction === 'usual' ? <ActivityIndicator size="small" color={spinnerColor} /> : null}
-              <Paragraph>Use current location as usual</Paragraph>
+              <Paragraph color="$color1">Use current location as usual</Paragraph>
             </XStack>
           </Button>
         </YStack>
 
-        <YStack gap="$3" p="$4" rounded="$8" bg="rgba(15,23,42,0.03)">
+        <YStack gap="$3" p="$4" {...profileCard}>
           <Paragraph fontWeight="800">Current location (GPS)</Paragraph>
           <Paragraph size="$2" color="$color10">
             {last ? `Last updated: ${last.updatedAt}` : 'Not set yet.'}
@@ -154,9 +154,9 @@ export function ProfileLocationScreen() {
             justify="space-between"
             p="$3"
             rounded="$8"
-            bg={autoGps ? 'rgba(16,185,129,0.10)' : 'rgba(148,163,184,0.12)'}
+            bg="$color3"
             borderWidth={1}
-            borderColor={autoGps ? 'rgba(16,185,129,0.25)' : 'rgba(148,163,184,0.22)'}
+            borderColor={autoGps ? 'rgba(16,185,129,0.35)' : '$borderColor'}
           >
             <YStack gap="$1">
               <Paragraph fontWeight="700">Auto-update</Paragraph>
@@ -174,6 +174,7 @@ export function ProfileLocationScreen() {
           <Button
             size="$4"
             rounded="$8"
+            {...profilePrimaryButton}
             disabled={locBusy}
             onPress={async () => {
               setLocationAction('gps')
@@ -200,7 +201,7 @@ export function ProfileLocationScreen() {
           >
             <XStack items="center" justify="center" gap="$2">
               {locationAction === 'gps' ? <ActivityIndicator size="small" color={spinnerColor} /> : null}
-              <Paragraph>Update GPS location</Paragraph>
+              <Paragraph color="$color1">Update GPS location</Paragraph>
             </XStack>
           </Button>
         </YStack>

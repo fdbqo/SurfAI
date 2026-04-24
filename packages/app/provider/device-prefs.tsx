@@ -75,6 +75,16 @@ export const DEFAULT_DEVICE_PREFS: DevicePrefs = {
 const STORAGE_KEY = 'surf_device_prefs_v1'
 const TRANSFER_PREFIX = 'surf_prefs_v1:'
 
+export const DEVICE_PREFS_STORAGE_KEY = STORAGE_KEY
+
+export async function clearDevicePrefsStorage(): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY)
+    return
+  }
+  await AsyncStorage.removeItem(STORAGE_KEY)
+}
+
 type Ctx = {
   loading: boolean
   prefs: DevicePrefs

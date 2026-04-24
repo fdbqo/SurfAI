@@ -10,7 +10,7 @@ import {
   XStack,
   YStack,
 } from '@my/ui'
-import { ActivityIndicator, AppState, Platform, useColorScheme } from 'react-native'
+import { ActivityIndicator, AppState, BackHandler, Platform, ScrollView, useColorScheme } from 'react-native'
 import { useDevicePrefs } from 'app/provider/device-prefs'
 import type { DevicePreferences } from 'app/provider/device-prefs'
 import { getCurrentLocation } from './location'
@@ -21,6 +21,8 @@ import { AnyNumberField } from './wizard/components/AnyNumberField'
 import { HeroBrand } from './wizard/components/HeroBrand'
 import { OptionButton } from './wizard/components/OptionButton'
 import { getStepContent, STEPS, type ReefPreference, type StepKey, type Strictness, type WavePreference } from './wizard/steps'
+import { useRouter } from 'solito/navigation'
+import { profileOutlinedAccentButton, profilePrimaryButton } from 'app/features/profile/profileScreenStyles'
 
 type Mode = 'onboarding' | 'edit'
 
@@ -97,6 +99,7 @@ function mapGuidedToResolved(opts: {
 
 export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => void }) {
   const { prefs, patchPrefs, loading } = useDevicePrefs()
+  const router = useRouter()
   const [stepIdx, setStepIdx] = useState(0)
   const [advanced, setAdvanced] = useState<Record<StepKey, boolean>>(() => ({} as Record<StepKey, boolean>))
   const [guided, setGuided] = useState<Guided>(() => ({
@@ -129,6 +132,40 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
 
   const step = STEPS[stepIdx]
   const didInitEdit = useRef(false)
+  /** RN Web can fire both `onClick` and `onPress` for one user action; use this so handlers run once per tick. */
+  const navDedupeRef = useRef(false)
+  function runNavOnce(action: () => void) {
+    if (navDedupeRef.current) return
+    navDedupeRef.current = true
+    try {
+      action()
+    } finally {
+      queueMicrotask(() => {
+        navDedupeRef.current = false
+      })
+    }
+  }
+  const webNavClick =
+    (action: () => void) =>
+    (Platform.OS === 'web' ? ({ onClick: () => runNavOnce(action) } as const) : {})
+
+  // Android hardware back (and header back in some stacks) should step backwards in the wizard first.
+  useEffect(() => {
+    if (Platform.OS === 'web') return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setStatus('')
+      if (stepIdx === 0 && mode === 'onboarding') {
+        router.replace('/')
+        return true
+      }
+      if (stepIdx > 0) {
+        setStepIdx((s) => clampNum(s - 1, 0, STEPS.length - 1))
+        return true
+      }
+      return false
+    })
+    return () => sub.remove()
+  }, [stepIdx, mode, router])
 
   useEffect(() => {
     setLocationAction(null)
@@ -314,6 +351,18 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
 
   function back() {
     setStatus('')
+    if (stepIdx === 0 && mode === 'onboarding') {
+      router.replace('/')
+      return
+    }
+    if (stepIdx === 0 && mode === 'edit') {
+      try {
+        router.back()
+      } catch {
+        router.push('/profile')
+      }
+      return
+    }
     setStepIdx((s) => clampNum(s - 1, 0, STEPS.length - 1))
   }
 
@@ -351,11 +400,18 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
   if (loading) return null
 
   const advToggle = meta.advancedLabel ? (
-    <XStack items="center" gap="$2">
-      <Paragraph color={isAdv ? '$color12' : '$color10'} size="$3">
+    <XStack items="center" gap="$2" flexShrink={0}>
+      <Paragraph size="$3" fontWeight="700" color="$color11">
         {meta.advancedLabel}
       </Paragraph>
-      <Switch size="$2" checked={isAdv} onCheckedChange={(v) => toggleAdvanced(Boolean(v))} />
+      <Button
+        size="$3"
+        px="$3"
+        {...(isAdv ? profilePrimaryButton : profileOutlinedAccentButton)}
+        onPress={() => toggleAdvanced(!isAdv)}
+      >
+        {isAdv ? 'On' : 'Off'}
+      </Button>
     </XStack>
   ) : null
 
@@ -633,7 +689,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
         <Input
           value={p.freeText || ''}
           onChangeText={(t) => patchPrefs({ preferences: { freeText: t } as any })}
-          placeholder="e.g. prefer dawn patrol, avoid crowds…"
+          placeholder="e.g. prefer mornings, avoid fridays..."
           multiline
           minHeight={120}
           rounded="$8"
@@ -682,7 +738,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
           <Button
             size="$4"
             rounded="$8"
-            variant="outlined"
+            {...profileOutlinedAccentButton}
             disabled={locBusy}
             onPress={async () => {
               setLocationAction('usual')
@@ -704,7 +760,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
               {locationAction === 'usual' ? (
                 <ActivityIndicator size="small" color={spinnerColor} />
               ) : null}
-              <Paragraph>Use current location as usual</Paragraph>
+              <Paragraph color="$blue11">Use current location as usual</Paragraph>
             </XStack>
           </Button>
         </YStack>
@@ -725,6 +781,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
           <Button
             size="$4"
             rounded="$8"
+            {...profilePrimaryButton}
             disabled={locBusy}
             onPress={async () => {
               setLocationAction('gps')
@@ -753,7 +810,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
               {locationAction === 'gps' ? (
                 <ActivityIndicator size="small" color={spinnerColor} />
               ) : null}
-              <Paragraph>Update GPS location</Paragraph>
+              <Paragraph color="$color1">Update GPS location</Paragraph>
             </XStack>
           </Button>
         </YStack>
@@ -796,68 +853,106 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
   }
 
   return (
-    <YStack flex={1} width="100%" px="$4" py="$4" bg="$background">
-      <YStack width="100%" maxWidth={720} alignSelf="center" gap="$4">
-        {mode === 'onboarding' ? <HeroBrand /> : null}
-
-        <YStack
-          gap="$4"
-          p="$4"
-          borderWidth={1}
-          borderColor="$borderColor"
-          rounded="$8"
-          bg="$background"
-        >
-          <XStack items="center" justify="space-between" gap="$3" flexWrap="wrap">
-            <Paragraph color="$color10">
-              Step {stepIdx + 1} of {STEPS.length}
-            </Paragraph>
-            {advToggle}
-          </XStack>
+    <YStack flex={1} width="100%" bg="$background">
+      <ScrollView
+        style={{ flex: 1, width: '100%', backgroundColor: 'transparent' }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+        removeClippedSubviews={false}
+      >
+        <YStack width="100%" flexGrow={1} px="$4" py="$4" bg="$background">
+          <YStack width="100%" maxWidth={720} alignSelf="center" gap="$4">
+          <YStack
+            gap="$4"
+            p="$4"
+            borderWidth={1}
+            borderColor="$borderColor"
+            rounded="$8"
+            // Force true white surface regardless of theme token mapping.
+            backgroundColor="#FFFFFF"
+          >
+            <XStack items="center" gap="$2" width="100%">
+              <Paragraph color="$color10" flexShrink={1} minWidth={0}>
+                Step {stepIdx + 1} of {STEPS.length}
+              </Paragraph>
+              {advToggle ? (
+                <>
+                  <XStack flex={1} minWidth={0} />
+                  {advToggle}
+                </>
+              ) : null}
+            </XStack>
             <YStack height={4} width="100%" bg="$color3" rounded="$10" overflow="hidden">
               <YStack height="100%" width={`${Math.round(progress * 100)}%`} bg="$color9" />
             </YStack>
-          
 
-          <YStack gap="$2">
-            <SizableText fontWeight="800" size="$7">
-              {meta.title}
-            </SizableText>
-            <Paragraph color="$color10">{meta.description}</Paragraph>
+            <YStack gap="$2">
+              <SizableText fontWeight="800" size="$7">
+                {meta.title}
+              </SizableText>
+              <Paragraph color="$color10">{meta.description}</Paragraph>
+            </YStack>
+
+            <YStack gap="$3">
+              {body}
+              {status ? (
+                <Paragraph size="$2" color="$color11">
+                  {status}
+                </Paragraph>
+              ) : null}
+            </YStack>
+
+            <XStack gap="$2" flexWrap="wrap" justifyContent="flex-start" items="center">
+              <Button
+                flexShrink={0}
+                {...profileOutlinedAccentButton}
+                disabled={busy}
+                onPress={() => runNavOnce(back)}
+                {...webNavClick(back)}
+              >
+                Back
+              </Button>
+
+              {stepIdx < STEPS.length - 1 ? (
+                <Button
+                  flexShrink={0}
+                  {...profilePrimaryButton}
+                  disabled={busy}
+                  onPress={() => runNavOnce(() => void next())}
+                  {...webNavClick(() => void next())}
+                  iconAfter={ChevronRight}
+                >
+                  Continue
+                </Button>
+              ) : (
+                <Button
+                  flexShrink={0}
+                  {...profilePrimaryButton}
+                  disabled={busy}
+                  onPress={() => runNavOnce(() => void complete())}
+                  {...webNavClick(() => void complete())}
+                >
+                  {mode === 'onboarding' ? 'Finish setup' : 'Save changes'}
+                </Button>
+              )}
+
+              {mode === 'onboarding' && stepIdx < STEPS.length - 1 ? (
+                <Button
+                  flexShrink={0}
+                  {...profileOutlinedAccentButton}
+                  disabled={busy}
+                  onPress={() => runNavOnce(() => void next())}
+                  {...webNavClick(() => void next())}
+                >
+                  Skip
+                </Button>
+              ) : null}
+            </XStack>
           </YStack>
-
-          <YStack gap="$3">
-            {body}
-            {status ? (
-              <Paragraph size="$2" color="$color11">
-                {status}
-              </Paragraph>
-            ) : null}
           </YStack>
-
-          <XStack gap="$2" flexWrap="wrap">
-            <Button variant="outlined" disabled={stepIdx === 0 || busy} onPress={back}>
-              Back
-            </Button>
-
-            {stepIdx < STEPS.length - 1 ? (
-              <Button disabled={busy} onPress={next} iconAfter={ChevronRight}>
-                Continue
-              </Button>
-            ) : (
-              <Button disabled={busy} onPress={complete}>
-                {mode === 'onboarding' ? 'Finish setup' : 'Save changes'}
-              </Button>
-            )}
-
-            {mode === 'onboarding' && stepIdx < STEPS.length - 1 ? (
-              <Button variant="outlined" disabled={busy} onPress={next}>
-                Skip
-              </Button>
-            ) : null}
-          </XStack>
         </YStack>
-      </YStack>
+      </ScrollView>
     </YStack>
   )
 }

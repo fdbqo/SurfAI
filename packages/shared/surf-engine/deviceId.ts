@@ -22,6 +22,10 @@ export async function getOrCreateStableDeviceId(storage: DeviceIdStorage): Promi
   return id
 }
 
+export async function clearStableDeviceId(storage: DeviceIdStorage): Promise<void> {
+  await storage.setItem(SURF_ENGINE_DEVICE_ID_STORAGE_KEY, '')
+}
+
 export function formatWebDeviceId(stableId: string): string {
   return `web:${stableId}`
 }

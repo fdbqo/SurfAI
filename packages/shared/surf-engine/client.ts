@@ -1,6 +1,7 @@
 import type {
   DisableDeviceBody,
   GetDeviceProfileResponse,
+  GetMeResponse,
   RegisterDeviceBody,
   RegisterDeviceResponse,
   TransferCreateBody,
@@ -28,6 +29,14 @@ export function createEngineClient(options: EngineClientOptions) {
   async function authHeaders(): Promise<Record<string, string> | undefined> {
     if (!getAuthHeaders) return undefined
     return await getAuthHeaders()
+  }
+
+  async function authHeaderOrThrow(): Promise<Record<string, string>> {
+    const h = await authHeaders()
+    if (!h || !Object.keys(h).length) {
+      throw new Error('Surf Engine: missing auth headers (deviceToken required)')
+    }
+    return h
   }
 
   async function parseJson<T>(res: Response): Promise<T> {
@@ -87,6 +96,47 @@ export function createEngineClient(options: EngineClientOptions) {
         body: JSON.stringify(body),
       })
       await parseJson<unknown>(res)
+    },
+
+    /** GDPR-safe: remove one device row + linked push identifiers from the engine DB. */
+    async deleteDevice(deviceId: string): Promise<void> {
+      const headers: HeadersInit = {
+        Accept: 'application/json',
+        ...(await authHeaderOrThrow()),
+      }
+      const res = await fetch(joinUrl(baseUrl, `/api/v1/devices/${encodeURIComponent(deviceId)}`), {
+        method: 'DELETE',
+        headers,
+      })
+      await parseJson<unknown>(res)
+    },
+
+    /** GDPR erase: delete user + all devices. Engine resolves "me" from deviceToken + x-device-id. */
+    async deleteMe(deviceId: string): Promise<void> {
+      const headers: HeadersInit = {
+        Accept: 'application/json',
+        'x-device-id': deviceId,
+        ...(await authHeaderOrThrow()),
+      }
+      const res = await fetch(joinUrl(baseUrl, '/api/v1/users/me'), {
+        method: 'DELETE',
+        headers,
+      })
+      await parseJson<unknown>(res)
+    },
+
+    /** Read-only session check; should 401/404 if token/user was deleted. */
+    async getMe(deviceId: string): Promise<GetMeResponse> {
+      const headers: HeadersInit = {
+        Accept: 'application/json',
+        'x-device-id': deviceId,
+        ...(await authHeaderOrThrow()),
+      }
+      const res = await fetch(joinUrl(baseUrl, '/api/v1/users/me'), {
+        method: 'GET',
+        headers,
+      })
+      return await parseJson<GetMeResponse>(res)
     },
 
     async createTransferCode(body: TransferCreateBody): Promise<TransferCreateResponse> {
