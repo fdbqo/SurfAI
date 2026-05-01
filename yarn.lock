@@ -15133,7 +15133,7 @@ __metadata:
     react-native: "npm:0.79.2"
     react-native-web: "npm:^0.20.0"
     shared: "npm:0.0.0"
-    tamagui: "npm:^1.136.1"
+    tamagui: "npm:2.0.0-rc.26"
     tree-kill: "npm:^1.2.2"
     vercel: "npm:latest"
     vitest: "npm:^2.1.1"

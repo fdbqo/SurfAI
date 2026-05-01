@@ -18,6 +18,7 @@ import {
   setDeviceToken,
   type DeviceIdStorage,
 } from 'shared/surf-engine'
+import type { PushNotificationsPanelProps } from './PushNotificationsPanel'
 
 const EXPO_TOKEN_STORAGE_KEY = 'surf-engine-expo-push-token'
 
@@ -41,7 +42,7 @@ Notifications.setNotificationHandler({
   }),
 })
 
-export function PushNotificationsPanel() {
+export function PushNotificationsPanel({ registrationOnboardingCompletedOverride }: PushNotificationsPanelProps) {
   const { prefs } = useDevicePrefs()
   const [status, setStatus] = useState<string>('')
   const [busy, setBusy] = useState(false)
@@ -96,7 +97,7 @@ export function PushNotificationsPanel() {
         expoToken,
         preferences: prefs.preferences,
         notificationSettings: prefs.notificationSettings,
-        onboardingCompleted: prefs.onboardingCompleted,
+        onboardingCompleted: registrationOnboardingCompletedOverride ?? prefs.onboardingCompleted,
         units: prefs.units,
         usualLocation: prefs.usualLocation,
         lastLocation: prefs.lastLocation,
@@ -211,6 +212,7 @@ export function PushNotificationsPanel() {
     <YStack gap="$3" p="$3" maxWidth={400} {...profileCard}>
       <Paragraph fontWeight="600">Surf Engine notifications (Mobile)</Paragraph>
       <Paragraph size="$2" color="$color10">
+        Due to the functionality of the app, you must register and allow notifications for it to work.
       </Paragraph>
       <Button {...profilePrimaryButton} disabled={busy} onPress={enableExpoPush}>
         Enable notifications

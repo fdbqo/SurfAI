@@ -822,7 +822,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
     const enabled = Boolean(prefs.notificationSettings.enabled)
     body = (
       <YStack gap="$4">
-        <PushNotificationsPanel />
+        <PushNotificationsPanel registrationOnboardingCompletedOverride />
         <XStack
           items="center"
           justify="space-between"

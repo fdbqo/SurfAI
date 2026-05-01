@@ -17,9 +17,9 @@ function MyApp({ Component, pageProps }: SolitoAppProps) {
   return (
     <>
       <Head>
-        <title>Tamagui • Pages Router</title>
+        <title>Surf AI</title>
         <meta name="description" content="Tamagui, Solito, Expo & Next.js" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/ico.svg" />
         <style
           dangerouslySetInnerHTML={{
             // the first time this runs you'll get the full CSS including all themes

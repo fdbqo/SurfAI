@@ -2,9 +2,12 @@ import type { Metadata } from 'next'
 import { NextTamaguiProvider } from 'app/provider/NextTamaguiProvider'
 
 export const metadata: Metadata = {
-  title: 'Tamagui • App Router',
+  title: {
+    default: 'Surf AI',
+    template: '%s • Surf AI',
+  },
   description: 'Tamagui, Solito, Expo & Next.js',
-  icons: '/favicon.ico',
+  icons: '/ico.svg',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,4 @@
-import { Button, H1, Paragraph, Separator, XStack, YStack } from '@my/ui'
+import { Button, H1, Paragraph, Separator, XStack, YStack, isWeb } from '@my/ui'
 import { useRouter } from 'solito/navigation'
 import { useDevicePrefs } from 'app/provider/device-prefs'
 import { profileOutlinedAccentButton, profilePrimaryButton } from 'app/features/profile/profileScreenStyles'
@@ -19,38 +19,11 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
       position="relative"
       overflow="hidden"
     >
-      {/* Decorative wave shape */}
-      <YStack
-        pointerEvents="none"
-        position="absolute"
-        b={-140}
-        l={-80}
-        r={-80}
-        h={320}
-        backgroundColor="#0A3D91"
-        opacity={0.32}
-        borderTopLeftRadius={260}
-        borderTopRightRadius={260}
-        rotate="-6deg"
-      />
-      <YStack
-        pointerEvents="none"
-        position="absolute"
-        b={-170}
-        l={-120}
-        r={-120}
-        h={360}
-        backgroundColor="#072B63"
-        opacity={0.28}
-        borderTopLeftRadius={320}
-        borderTopRightRadius={320}
-        rotate="4deg"
-      />
-
       <YStack gap="$4" maxWidth={560} width="100%" zIndex={1}>
-        <H1 text="center" color="$color12">
-          Surf AI
-        </H1>
+        <XStack justify="center" items="center" gap="$3">
+          {isWeb ? <img src="/ico.svg" alt="" width={32} height={32} /> : null}
+          <H1 color="$color12">Surf AI</H1>
+        </XStack>
         <Paragraph color="$color10" text="center">
           Local-first surf preferences + alerts, with optional transfer codes to link devices.
         </Paragraph>

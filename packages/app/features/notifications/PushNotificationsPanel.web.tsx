@@ -16,6 +16,7 @@ import {
   urlBase64ToUint8Array,
   type DeviceIdStorage,
 } from 'shared/surf-engine'
+import type { PushNotificationsPanelProps } from './PushNotificationsPanel'
 
 const WEB_PUSH_ENDPOINT_KEY = 'surf-engine-webpush-endpoint'
 
@@ -33,7 +34,7 @@ const webLocalStorage: DeviceIdStorage = {
   },
 }
 
-export function PushNotificationsPanel() {
+export function PushNotificationsPanel({ registrationOnboardingCompletedOverride }: PushNotificationsPanelProps) {
   const { prefs } = useDevicePrefs()
   const [mounted, setMounted] = useState(false)
   const [status, setStatus] = useState<string>('')
@@ -98,7 +99,7 @@ export function PushNotificationsPanel() {
         },
         preferences: prefs.preferences,
         notificationSettings: prefs.notificationSettings,
-        onboardingCompleted: prefs.onboardingCompleted,
+        onboardingCompleted: registrationOnboardingCompletedOverride ?? prefs.onboardingCompleted,
         units: prefs.units,
         usualLocation: prefs.usualLocation,
         lastLocation: prefs.lastLocation,
@@ -275,6 +276,7 @@ export function PushNotificationsPanel() {
     <YStack gap="$3" p="$3" maxWidth={400} {...profileCard}>
       <Paragraph fontWeight="600">Surf Engine notifications (Web)</Paragraph>
       <Paragraph size="$2" color="$color10">
+        Due to the functionality of the app, you must register and allow notifications for it to work.
       </Paragraph>
       <Button {...profilePrimaryButton} disabled={busy} onPress={enableWebPush}>
         Enable notifications
