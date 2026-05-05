@@ -32,7 +32,7 @@ type Risk = DevicePreferences['riskTolerance']
 type Guided = {
   wavePreference: WavePreference | null
   reefPreference: ReefPreference | null
-  /** `null` = no max travel distance (matches prefs `maxDistanceKm: null`) */
+  // null means no max travel distance, matches prefs maxDistanceKm null
   maxDistanceKmPreset: number | null
 }
 
@@ -51,7 +51,7 @@ function clampNum(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
 }
 
-// (moved to ./wizard/*)
+// moved under ./wizard
 
 function mapGuidedToResolved(opts: {
   skill: Skill
@@ -132,7 +132,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
 
   const step = STEPS[stepIdx]
   const didInitEdit = useRef(false)
-  /** RN Web can fire both `onClick` and `onPress` for one user action; use this so handlers run once per tick. */
+  // rn web may fire onClick and onPress for one gesture, runNavOnce keeps one handler run per tick
   const navDedupeRef = useRef(false)
   function runNavOnce(action: () => void) {
     if (navDedupeRef.current) return
@@ -149,7 +149,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
     (action: () => void) =>
     (Platform.OS === 'web' ? ({ onClick: () => runNavOnce(action) } as const) : {})
 
-  // Android hardware back (and header back in some stacks) should step backwards in the wizard first.
+  // android hardware back and header back in some stacks should step the wizard back first
   useEffect(() => {
     if (Platform.OS === 'web') return
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -248,13 +248,13 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
           },
         })
       } catch {
-        // best effort, keep UI quiet during auto polling.
+        // best effort, keep ui quiet during auto polling
       } finally {
         inFlight = false
       }
     }
 
-    // run once immediately, then poll.
+    // run once immediately, then poll
     void tick()
     interval = setInterval(tick, 30_000)
 
@@ -869,7 +869,7 @@ export function OnboardingWizard({ mode, onDone }: { mode: Mode; onDone?: () => 
             borderWidth={1}
             borderColor="$borderColor"
             rounded="$8"
-            // Force true white surface regardless of theme token mapping.
+            // force true white surface regardless of theme token mapping
             backgroundColor="#FFFFFF"
           >
             <XStack items="center" gap="$2" width="100%">
