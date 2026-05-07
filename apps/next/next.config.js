@@ -32,6 +32,17 @@ const plugins = [
 module.exports = () => {
   /** @type {import('next').NextConfig} */
   let config = {
+    headers: async () => [
+      {
+        source: '/push-service-worker.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, max-age=0',
+          },
+        ],
+      },
+    ],
     typescript: {
       ignoreBuildErrors: true,
     },

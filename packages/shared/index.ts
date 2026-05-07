@@ -1,6 +1,7 @@
 export * from './types'
 export * from './scoring'
 export * from './wind-correction'
+export * from './surf-engine'
 
 // Static spot data
 export * from './spots'

@@ -23,7 +23,7 @@
     "react-native": "0.79.2",
     "react-native-web": "^0.20.0",
     "shared": "0.0.0",
-    "tamagui": "^1.136.1",
+    "tamagui": "2.0.0-rc.26",
     "vercel": "latest"
   },
   "devDependencies": {

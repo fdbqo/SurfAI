@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import mongoose from 'mongoose'
 import { allSpots, type Spot } from '../../shared/spots/index'
-import { windAt2m, scoreSpot } from '../../shared/index'
+import { windAt2m } from '../../shared/index'
 import { SpotConditionsHourly } from './models/SpotConditionsHourly'
 import { fetchWithRetry } from './utils/retry'
 import { validateConditions } from './utils/validation'

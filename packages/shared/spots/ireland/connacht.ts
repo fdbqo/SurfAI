@@ -59,8 +59,8 @@ export const connachtSpots: Spot[] = [
   {
     id: '5842041f4e65fad6a7708c44',
     name: 'Dunmoran',
-    lat: 54.29128738305219,
-    lon: -8.750172734025955,
+    lat: 54.266000,
+    lon: -8.729000,
     orientation: 300,
     type: 'beach',
     country: 'Ireland',

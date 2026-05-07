@@ -3,7 +3,6 @@ import mongoose from 'mongoose'
 import { SpotConditionsHourly } from './models/SpotConditionsHourly'
 import { SpotForecastDaily } from './models/SpotForecastDaily'
 import { allSpots } from '../../shared/spots/index'
-import { scoreSpot } from '../../shared/index'
 import { validateSwellHeight, validateSwellPeriod, validateDirection } from './utils/validation'
 import { logInfo, logWarn, logError, logSuccess } from './utils/logger'
 
@@ -112,75 +111,6 @@ async function aggregateDaily() {
         }
       }
 
-      const score = scoreSpot({
-        swellHeight: avgSwellHeight,
-        swellPeriod: avgSwellPeriod,
-        swellDirection: avgSwellDirection,
-        waveHeight: avgWaveHeight,
-        wavePeriod: avgWavePeriod,
-        windSpeed2m: samples.reduce((sum, s) => sum + (s.windSpeed2m || 0), 0) / samples.length,
-        windSpeed10m: avgWindSpeed10m,
-        windDirection: dominantWindDirection,
-        spotOrientation: spot.orientation,
-        ability: 'intermediate',
-      })
-
-      let bestHour: number | undefined
-      let bestScore = -1
-
-      for (let hour = 0; hour < 24; hour++) {
-        const hourStart = new Date(yesterday)
-        hourStart.setUTCHours(hour, 0, 0, 0)
-
-        const hourEnd = new Date(yesterday)
-        hourEnd.setUTCHours(hour, 59, 59, 999)
-
-        const hourSamples = samples.filter(
-          (s) => {
-            const sampleTime = new Date(s.timestamp)
-            return sampleTime >= hourStart && sampleTime <= hourEnd
-          }
-        )
-
-        if (hourSamples.length === 0) continue
-
-        const hourAvgSwellHeight =
-          hourSamples.reduce((sum, s) => sum + (s.swellHeight || 0), 0) / hourSamples.length
-        const hourAvgSwellPeriod =
-          hourSamples.reduce((sum, s) => sum + (s.swellPeriod || 0), 0) / hourSamples.length
-        const hourAvgSwellDirection =
-          hourSamples.reduce((sum, s) => sum + (s.swellDirection || 0), 0) / hourSamples.length
-        const hourAvgWaveHeight =
-          hourSamples.reduce((sum, s) => sum + (s.waveHeight || 0), 0) / hourSamples.length
-        const hourAvgWavePeriod =
-          hourSamples.reduce((sum, s) => sum + (s.wavePeriod || 0), 0) / hourSamples.length
-        const hourWindSpeed2m = hourSamples.length > 0
-          ? hourSamples.reduce((sum, s) => sum + (s.windSpeed2m || 0), 0) / hourSamples.length
-          : 0
-        const hourWindSpeed10m =
-          hourSamples.reduce((sum, s) => sum + (s.windSpeed10m || 0), 0) / hourSamples.length
-        const hourWindDirection =
-          hourSamples.reduce((sum, s) => sum + (s.windDirection || 0), 0) / hourSamples.length
-
-        const hourScore = scoreSpot({
-          swellHeight: hourAvgSwellHeight,
-          swellPeriod: hourAvgSwellPeriod,
-          swellDirection: hourAvgSwellDirection,
-          waveHeight: hourAvgWaveHeight,
-          wavePeriod: hourAvgWavePeriod,
-          windSpeed2m: hourWindSpeed2m,
-          windSpeed10m: hourWindSpeed10m,
-          windDirection: hourWindDirection,
-          spotOrientation: spot.orientation,
-          ability: 'intermediate',
-        })
-
-        if (hourScore.score > bestScore) {
-          bestScore = hourScore.score
-          bestHour = hour
-        }
-      }
-
       await SpotForecastDaily.findOneAndUpdate(
         {
           spotId,
@@ -207,9 +137,6 @@ async function aggregateDaily() {
             wavePeriod: Math.round(avgWavePeriod * 100) / 100,
             windSpeedAvg: Math.round(avgWindSpeed10m * 100) / 100,
             windDirectionDominant: Math.round(dominantWindDirection),
-            bestHour,
-            dailyScore: score.score,
-            score: score.score, // Keep for backward compatibility
             confidence: samples.length > 0 ? Math.min(samples.length / 24, 1) : undefined,
             source: 'aggregate' as const,
           },
@@ -222,8 +149,6 @@ async function aggregateDaily() {
       logSuccess(`Daily aggregated`, {
         spotId,
         spotName: spot.name,
-        score: score.score,
-        bestHour,
       })
     }
 

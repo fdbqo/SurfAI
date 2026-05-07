@@ -1,10 +1,9 @@
 import 'dotenv/config'
 import mongoose from 'mongoose'
 import { allSpots, type Spot } from '../../shared/spots/index'
-import { windAt2m, scoreSpot } from '../../shared/index'
+import { windAt2m } from '../../shared/index'
 import { SpotForecast3h } from './models/SpotForecast3h'
 import { SpotForecastDaily } from './models/SpotForecastDaily'
-import { SpotForecastRuns } from './models/SpotForecastRuns'
 import { fetchWithRetry } from './utils/retry'
 import { normalizeToUTCMidnight, getDayIndex } from './utils/dateHelpers'
 import { validateConditions, validateSwellHeight, validateSwellPeriod, validateDirection } from './utils/validation'
@@ -307,7 +306,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
       windSpeed10m: number
       windSpeed2m: number
       windDirection: number
-      blockScore: number
       localHour: number
     }> = []
 
@@ -318,8 +316,8 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
       const hourDate = new Date(timeStr)
       const dayIndex = getDayIndex(hourDate, today)
       
-      // Only process days 3-7
-      if (dayIndex < 3 || dayIndex > 7) continue
+      // Only process days 0-6 (first 7 days in 3-hour blocks)
+      if (dayIndex < 0 || dayIndex > 6) continue
       
       const blockStart = roundTo3Hours(hourDate)
       const { localHour } = getLocalTime(blockStart, spot.lat, spot.lon)
@@ -332,20 +330,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
       const windSpeed10m = hourlyData.windHourly.wind_speed_10m?.[i] ?? 0
       const windSpeed2m = windAt2m(windSpeed10m)
       const windDirection = hourlyData.windHourly.wind_direction_10m?.[i] ?? 0
-
-      const score = scoreSpot({
-        swellHeight,
-        swellPeriod,
-        swellDirection,
-        waveHeight,
-        wavePeriod,
-        windSpeed2m,
-        windSpeed10m,
-        windDirection,
-        spotOrientation: spot.orientation,
-        ability: 'intermediate',
-        localHour,
-      })
 
       threeHourBlocks.push({
         blockStart,
@@ -366,7 +350,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
         windSpeed10m: Math.round(windSpeed10m * 10) / 10,
         windSpeed2m: Math.round(windSpeed2m * 10) / 10,
         windDirection: Math.round(windDirection),
-        blockScore: score.score,
         localHour,
       })
     }
@@ -406,7 +389,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
         windSpeed10m: blocks.reduce((sum, b) => sum + b.windSpeed10m, 0) / blocks.length,
         windSpeed2m: blocks.reduce((sum, b) => sum + b.windSpeed2m, 0) / blocks.length,
         windDirection: calculateDominantDirection(blocks.map(b => b.windDirection)),
-        blockScore: blocks.reduce((sum, b) => sum + b.blockScore, 0) / blocks.length,
         localHour: blocks[0].localHour,
       }
 
@@ -434,7 +416,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
             windSpeed10m: Math.round(avgBlock.windSpeed10m * 10) / 10,
             windSpeed2m: Math.round(avgBlock.windSpeed2m * 10) / 10,
             windDirection: Math.round(avgBlock.windDirection),
-            blockScore: Math.round(avgBlock.blockScore * 10) / 10,
             localHour: avgBlock.localHour,
           },
         },
@@ -445,7 +426,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
 
     // Process 7-15 day horizon: daily forecasts
     let dailyCount = 0
-    let forecastRunCount = 0
 
     for (const day of dailyData) {
       const forecastDate = normalizeToUTCMidnight(new Date(day.date + 'T00:00:00.000Z'))
@@ -453,8 +433,8 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
       
       const dayIndex = Math.max(0, getDayIndex(forecastDate, today))
       
-      // Only process days 7-15
-      if (dayIndex < 7 || dayIndex > 15) continue
+      // Only process days 0-13 (14-day forecast; daily for all)
+      if (dayIndex < 0 || dayIndex > 13) continue
 
       const confidence = calculateForecastConfidence(dayIndex)
       const validated = validateConditions({
@@ -465,19 +445,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
         wavePeriod: day.wavePeriodMax || 0,
         windSpeed10m: day.windSpeedAvg,
         windDirection: day.windDirectionDominant,
-      })
-
-      const dailyScore = scoreSpot({
-        swellHeight: validated.swellHeight || 0,
-        swellPeriod: validated.swellPeriod || 0,
-        swellDirection: validated.swellDirection || 0,
-        waveHeight: validated.waveHeight || 0,
-        wavePeriod: validated.wavePeriod || 0,
-        windSpeed2m: windAt2m(day.windSpeedAvg),
-        windSpeed10m: day.windSpeedAvg,
-        windDirection: day.windDirectionDominant,
-        spotOrientation: spot.orientation,
-        ability: 'intermediate',
       })
 
       const existingForecast = await SpotForecastDaily.findOne({
@@ -525,7 +492,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
             wavePeriod: day.wavePeriodMax !== undefined ? Math.round(day.wavePeriodMax * 100) / 100 : undefined,
             windSpeedAvg: Math.round(day.windSpeedAvg * 10) / 10,
             windDirectionDominant: Math.round(day.windDirectionDominant),
-            dailyScore: dailyScore.score,
             confidence,
             bestWindowEstimate,
             stability,
@@ -535,21 +501,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
         { upsert: true }
       )
       dailyCount++
-
-      // Store in SpotForecastRuns (append-only history)
-      await SpotForecastRuns.create({
-        spotId: spot.id,
-        modelRunTime,
-        date: forecastDate,
-        dayIndex,
-        swellHeightMax: Math.round((validated.swellHeight || 0) * 100) / 100,
-        swellPeriodMax: Math.round((validated.swellPeriod || 0) * 100) / 100,
-        waveHeightMax: Math.round((validated.waveHeight || 0) * 100) / 100,
-        windSpeedAvg: Math.round(day.windSpeedAvg * 10) / 10,
-        windDirectionDominant: Math.round(day.windDirectionDominant),
-        confidence,
-      })
-      forecastRunCount++
     }
 
     const totalLatency = Date.now() - spotStartTime
@@ -559,7 +510,6 @@ async function updateSpotForecast(spot: Spot, modelRunTime: Date) {
       latency: totalLatency,
       threeHourBlocks: threeHourCount,
       dailyForecasts: dailyCount,
-      forecastRuns: forecastRunCount,
     })
   } catch (error) {
     const totalLatency = Date.now() - spotStartTime
